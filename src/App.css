@@ -1,0 +1,172 @@
+.app-shell {
+  position: relative;
+  min-height: 100svh;
+  background: #f7f2e8;
+}
+
+.launch-page {
+  position: relative;
+  width: 100%;
+  min-height: 100svh;
+  overflow: visible;
+  background: #f7f4ec;
+}
+
+.launch-image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.launch-enter-hotspot {
+  position: absolute;
+  z-index: 1;
+  top: 84.8%;
+  left: 28%;
+  width: 44%;
+  height: 4.2%;
+  min-height: 44px;
+  padding: 0;
+  cursor: pointer;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.launch-enter-hotspot:focus-visible {
+  outline: 2px solid rgba(55, 92, 67, 0.78);
+  outline-offset: 3px;
+}
+
+.main-page {
+  position: relative;
+  width: 100%;
+  min-height: 100svh;
+  overflow: hidden;
+  background: #f7f2e8;
+}
+
+.page-background {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.elf-actions {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: calc(118px + env(safe-area-inset-bottom));
+  width: calc(100% - 16px);
+  max-width: 396px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  gap: clamp(6px, 2vw, 10px);
+  transform: translate(-50%, 10%);
+}
+
+.elf-action-button {
+  min-width: 0;
+  padding: 0;
+  cursor: pointer;
+  border: 0;
+  border-radius: 22%;
+  background: transparent;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.elf-action-button img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.elf-action-button:focus-visible {
+  outline: 2px solid rgba(55, 92, 67, 0.7);
+  outline-offset: 3px;
+}
+
+.my-page {
+  background: linear-gradient(180deg, #faf7ef 0%, #f3ecdf 100%);
+}
+
+.bottom-tabs {
+  position: fixed;
+  z-index: 10;
+  left: 50%;
+  bottom: 0;
+  width: min(100%, 430px);
+  height: calc(106px + env(safe-area-inset-bottom));
+  padding: 6px 18px max(8px, env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, rgba(249, 246, 237, 0), rgba(249, 246, 237, 0.9) 36%, rgba(249, 246, 237, 0.97));
+}
+
+.tab-button {
+  position: relative;
+  min-width: 0;
+  height: 92px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tab-button::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  width: 50px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(103, 132, 104, 0);
+  filter: blur(3px);
+  transform: translateX(-50%);
+  transition: background 180ms ease;
+}
+
+.tab-button img {
+  display: block;
+  width: min(82px, 24vw);
+  height: auto;
+  opacity: 0.62;
+  transform: scale(0.92);
+  transform-origin: center bottom;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.tab-button.is-active img {
+  opacity: 1;
+  transform: scale(1.05) translateY(-2px);
+}
+
+.tab-button.is-active::after {
+  background: rgba(103, 132, 104, 0.24);
+}
+
+.tab-button:focus-visible {
+  outline: 2px solid rgba(55, 92, 67, 0.65);
+  outline-offset: -6px;
+  border-radius: 18px;
+}
+
+@media (min-width: 431px) {
+  body { padding-block: 24px; }
+  #root { border-radius: 34px; }
+  .app-shell,
+  .main-page { min-height: min(852px, calc(100svh - 48px)); }
+  .elf-actions { bottom: calc(118px + env(safe-area-inset-bottom)); }
+  .bottom-tabs { bottom: 24px; border-radius: 0 0 34px 34px; }
+}
