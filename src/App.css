@@ -56,6 +56,20 @@
   object-position: center;
 }
 
+.elf-video {
+  position: absolute;
+  z-index: 1;
+  top: clamp(54px, 8svh, 76px);
+  left: 50%;
+  width: min(100%, 430px);
+  height: calc(100svh - 340px - env(safe-area-inset-bottom));
+  max-height: 540px;
+  object-fit: contain;
+  object-position: center;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
 .elf-actions {
   position: absolute;
   z-index: 2;
@@ -89,6 +103,10 @@
 .elf-action-button:focus-visible {
   outline: 2px solid rgba(55, 92, 67, 0.7);
   outline-offset: 3px;
+}
+
+.elf-action-button:disabled {
+  cursor: default;
 }
 
 .my-page {
