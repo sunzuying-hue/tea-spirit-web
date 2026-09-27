@@ -10,8 +10,9 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
-videos/
-public/videos/
+/videos/
+public/videos/**/*.mov
+public/videos/**/*.webm
 *.local
 
 # Editor directories and files

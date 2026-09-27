@@ -56,7 +56,7 @@
   object-position: center;
 }
 
-.elf-video {
+.elf-video-frame {
   position: absolute;
   z-index: 1;
   top: clamp(54px, 8svh, 76px);
@@ -64,10 +64,26 @@
   width: min(100%, 430px);
   height: calc(100svh - 340px - env(safe-area-inset-bottom));
   max-height: 540px;
+  overflow: hidden;
+  background: transparent;
+  transform: translateX(-50%);
+}
+
+.elf-video {
+  display: block;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   object-position: center;
   pointer-events: none;
-  transform: translateX(-50%);
+  transform: scale(1.015) translateZ(0);
+  transform-origin: center;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  background: transparent;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 .elf-actions {
@@ -110,7 +126,193 @@
 }
 
 .my-page {
-  background: linear-gradient(180deg, #faf7ef 0%, #f3ecdf 100%);
+  height: 100svh;
+  padding-bottom: calc(116px + env(safe-area-inset-bottom));
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: #f7f2e8;
+  color: #344d3c;
+  -webkit-overflow-scrolling: touch;
+}
+
+.my-page-canvas {
+  position: relative;
+  width: min(100%, 430px);
+  aspect-ratio: 730 / 1212;
+  min-height: calc(100svh - 70px);
+  margin: 0 auto;
+}
+
+.my-layout-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+
+.my-user-info {
+  position: absolute;
+  z-index: 1;
+  top: 5.3%;
+  left: 7%;
+  width: 58%;
+  height: 19%;
+  display: grid;
+  grid-template-columns: 38% 1fr;
+  align-items: center;
+  gap: 7%;
+}
+
+.my-avatar {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border: 1px solid rgba(100, 125, 98, 0.35);
+  box-shadow: 0 4px 10px rgba(61, 75, 57, 0.1);
+}
+
+.my-user-copy {
+  min-width: 0;
+  display: grid;
+  justify-items: start;
+  gap: clamp(4px, 1vw, 8px);
+  font-family: "STKaiti", "KaiTi", "FangSong", serif;
+}
+
+.my-user-copy strong {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: clamp(15px, 4.4vw, 20px);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.my-user-copy button {
+  padding: 4px 10px;
+  border: 1px solid rgba(74, 107, 78, 0.45);
+  border-radius: 2px;
+  color: #3d6047;
+  background: rgba(244, 240, 222, 0.72);
+  font: inherit;
+  font-size: clamp(10px, 2.8vw, 13px);
+}
+
+.my-user-copy button:not(:disabled) {
+  cursor: pointer;
+}
+
+.my-user-copy p {
+  margin: 2px 0 0;
+  font-size: clamp(10px, 2.7vw, 13px);
+  line-height: 1.45;
+}
+
+.my-user-copy p span {
+  display: block;
+}
+
+.my-companion {
+  position: absolute;
+  z-index: 1;
+  top: 35%;
+  left: 42%;
+  width: 48%;
+  height: 9%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "STKaiti", "KaiTi", "FangSong", serif;
+  font-size: clamp(15px, 4.4vw, 20px);
+  letter-spacing: 0.08em;
+}
+
+.my-companion strong {
+  margin-inline: 0.12em;
+  font-size: 1.25em;
+  color: #56745a;
+}
+
+.my-memory {
+  position: absolute;
+  z-index: 1;
+  top: 53.8%;
+  left: 14.2%;
+  width: 78%;
+  height: 27%;
+}
+
+.my-memory > img {
+  width: 48%;
+  height: 72%;
+  object-fit: cover;
+  object-position: center 18%;
+  border: 1px solid rgba(105, 126, 96, 0.28);
+}
+
+.my-memory > .my-poem-image {
+  position: absolute;
+  right: -1%;
+  bottom: -2%;
+  width: 58%;
+  height: 123.25%;
+  object-fit: contain;
+  object-position: right bottom;
+  border: 0;
+  box-shadow: none;
+}
+
+.my-user-copy button:focus-visible,
+.my-memory:focus-visible {
+  outline: 2px solid rgba(55, 92, 67, 0.7);
+  outline-offset: 3px;
+}
+
+.letters-page {
+  height: 100svh;
+  padding: clamp(52px, 8svh, 72px) 14px calc(118px + env(safe-area-inset-bottom));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.letters-list {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 402px;
+  margin: 0 auto;
+  display: grid;
+  gap: clamp(12px, 2.4svh, 20px);
+}
+
+.letter-card {
+  width: 100%;
+  padding: 0;
+  cursor: pointer;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  box-shadow: 0 7px 18px rgba(82, 72, 52, 0.1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.letter-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: inherit;
+}
+
+.letter-card.is-read {
+  opacity: 0.82;
+}
+
+.letter-card:focus-visible {
+  outline: 2px solid rgba(55, 92, 67, 0.7);
+  outline-offset: 3px;
 }
 
 .bottom-tabs {

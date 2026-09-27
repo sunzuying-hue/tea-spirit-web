@@ -1,35 +1,63 @@
 import { useEffect, useRef, useState } from 'react'
-import cloudbase from '@cloudbase/js-sdk'
 import teaBackground from '../assets/tea-bg.png'
 import talkUi from '../assets/interaction-talk.png'
 import waterUi from '../assets/interaction-water.png'
 import sunUi from '../assets/interaction-sun.png'
-
-const cloudbaseApp = cloudbase.init({
-  env: 'tea-spirit-web-d8g3tqcm207d21843',
-})
-const videoBucket = cloudbaseApp.storage.from('tea-spirit-web')
-
-const getPublicVideoUrl = (path) => {
-  const { data } = videoBucket.getPublicUrl(path)
-  return data.publicUrl
-}
+import { getSpiritStage } from '../services/lifecycleService'
+import { getOrCreateObtainedAt } from '../services/letterService'
 
 const videos = {
-  idle: getPublicVideoUrl('zaoqi-guaji.webm'),
-  talk: getPublicVideoUrl('zaoqi-duihua.webm'),
-  water: getPublicVideoUrl('zaoqi-heshui.webm'),
-  sun: getPublicVideoUrl('zaoqi-yangguang.webm'),
+  early: {
+    idle: '/videos/zaoqi/zaoqi-guaji.mp4',
+    talk: '/videos/zaoqi/zaoqi-duihua.mp4',
+    water: '/videos/zaoqi/zaoqi-heshui.mp4',
+    sun: '/videos/zaoqi/zaoqi-yangguang.mp4',
+  },
+  mid: {
+    idle: '/videos/zhongqi/zhongqi-guaji.mp4',
+    talk: '/videos/zhongqi/zhongqi-duihua.mp4',
+    water: '/videos/zhongqi/zhongqi-heshui.mp4',
+    sun: '/videos/zhongqi/zhongqi-yangguang.mp4',
+  },
+  late: {
+    idle: '/videos/houqi/houqi-guaji.mp4',
+    talk: '/videos/houqi/houqi-duihua.mp4',
+    water: '/videos/houqi/houqi-heshui.mp4',
+    sun: '/videos/houqi/houqi-yangguang.mp4',
+  },
 }
 
 function ElfPage() {
   const videoRef = useRef(null)
+  const [obtainedAt] = useState(() => getOrCreateObtainedAt())
   const [currentVideo, setCurrentVideo] = useState('idle')
   const [isInteracting, setIsInteracting] = useState(false)
+  const [currentStage, setCurrentStage] = useState(() =>
+    getSpiritStage(obtainedAt),
+  )
+  const currentVideoSrc =
+    currentStage === 'complete' ? null : videos[currentStage][currentVideo]
+
+  useEffect(() => {
+    const updateStage = () => {
+      setCurrentStage(getSpiritStage(obtainedAt, Date.now()))
+    }
+    const stageClock = window.setInterval(updateStage, 60 * 1000)
+
+    updateStage()
+    window.addEventListener('focus', updateStage)
+    document.addEventListener('visibilitychange', updateStage)
+
+    return () => {
+      window.clearInterval(stageClock)
+      window.removeEventListener('focus', updateStage)
+      document.removeEventListener('visibilitychange', updateStage)
+    }
+  }, [obtainedAt])
 
   useEffect(() => {
     const video = videoRef.current
-    if (!video) return
+    if (!video || currentStage === 'complete') return
 
     video.load()
     const playPromise = video.play()
@@ -38,7 +66,7 @@ function ElfPage() {
         // Muted autoplay can still be blocked by browser or device policy.
       })
     }
-  }, [currentVideo])
+  }, [currentStage, currentVideo])
 
   const startInteraction = (videoName) => {
     if (isInteracting) return
@@ -64,6 +92,23 @@ function ElfPage() {
     setIsInteracting(false)
   }
 
+  const handleVideoLoadedData = (event) => {
+    console.info('Tea spirit video loaded:', event.currentTarget.currentSrc)
+  }
+
+  const handleVideoPlay = (event) => {
+    console.info('Tea spirit video playing:', event.currentTarget.currentSrc)
+  }
+
+  const handleVideoError = (event) => {
+    const mediaError = event.currentTarget.error
+    console.error('Tea spirit video failed:', {
+      src: event.currentTarget.currentSrc || currentVideoSrc,
+      code: mediaError?.code,
+      message: mediaError?.message,
+    })
+  }
+
   const actions = [
     { id: 'talk', label: '对话', image: talkUi, onClick: handleTalk },
     { id: 'water', label: '喝水', image: waterUi, onClick: handleWater },
@@ -73,18 +118,25 @@ function ElfPage() {
   return (
     <main className="main-page elf-page">
       <img className="page-background" src={teaBackground} alt="" />
-      <video
-        ref={videoRef}
-        className="elf-video"
-        src={videos[currentVideo]}
-        autoPlay
-        muted
-        playsInline
-        preload="auto"
-        loop={currentVideo === 'idle'}
-        onEnded={handleVideoEnded}
-        aria-label="茶灵"
-      />
+      {currentStage !== 'complete' && (
+        <div className="elf-video-frame">
+        <video
+          ref={videoRef}
+          className="elf-video"
+          src={currentVideoSrc}
+          autoPlay
+          muted
+          playsInline
+          preload="auto"
+          loop={currentVideo === 'idle'}
+          onLoadedData={handleVideoLoadedData}
+          onPlay={handleVideoPlay}
+          onEnded={handleVideoEnded}
+          onError={handleVideoError}
+          aria-label={`${currentStage}阶段茶灵`}
+        />
+        </div>
+      )}
       <section className="elf-actions" aria-label="茶灵互动">
         {actions.map((action) => (
           <button
@@ -93,7 +145,7 @@ function ElfPage() {
             type="button"
             aria-label={action.label}
             onClick={action.onClick}
-            disabled={isInteracting}
+            disabled={isInteracting || currentStage === 'complete'}
           >
             <img src={action.image} alt="" />
           </button>
