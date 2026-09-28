@@ -5,6 +5,7 @@ import waterUi from '../assets/interaction-water.png'
 import sunUi from '../assets/interaction-sun.png'
 import { getSpiritStage } from '../services/lifecycleService'
 import { getOrCreateObtainedAt } from '../services/letterService'
+import { syncTeaSpiritLifecycle } from '../services/teaSpiritService'
 
 const videos = {
   early: {
@@ -32,6 +33,8 @@ function ElfPage() {
   const [obtainedAt] = useState(() => getOrCreateObtainedAt())
   const [currentVideo, setCurrentVideo] = useState('idle')
   const [isInteracting, setIsInteracting] = useState(false)
+  const [cloudSpirit, setCloudSpirit] = useState(null)
+  const [lifecycleError, setLifecycleError] = useState('')
   const [currentStage, setCurrentStage] = useState(() =>
     getSpiritStage(obtainedAt),
   )
@@ -40,7 +43,12 @@ function ElfPage() {
 
   useEffect(() => {
     const updateStage = () => {
-      setCurrentStage(getSpiritStage(obtainedAt, Date.now()))
+      const sourceObtainedAt = cloudSpirit?.obtained_at
+        ? new Date(cloudSpirit.obtained_at).getTime()
+        : obtainedAt
+      setCurrentStage(cloudSpirit?.status === 'completed'
+        ? 'complete'
+        : getSpiritStage(sourceObtainedAt, Date.now()))
     }
     const stageClock = window.setInterval(updateStage, 60 * 1000)
 
@@ -53,7 +61,41 @@ function ElfPage() {
       window.removeEventListener('focus', updateStage)
       document.removeEventListener('visibilitychange', updateStage)
     }
-  }, [obtainedAt])
+  }, [cloudSpirit, obtainedAt])
+
+  useEffect(() => {
+    let active = true
+    const refreshSpirit = async () => {
+      try {
+        const spirit = await syncTeaSpiritLifecycle()
+        if (active && spirit) {
+          setCloudSpirit(spirit)
+          setLifecycleError('')
+        }
+      } catch {
+        if (active) {
+          setLifecycleError('网络好像开小差了，成长状态稍后会自动重试。')
+        }
+      }
+    }
+    const handleCloudChange = (event) => {
+      if (!active) return
+      setCloudSpirit(event.detail?.spirit || null)
+      setLifecycleError('')
+    }
+    const handleLifecycleError = () => {
+      if (!active) return
+      setLifecycleError('网络好像开小差了，成长状态稍后会自动重试。')
+    }
+    refreshSpirit()
+    window.addEventListener('tea-spirit-cloud-changed', handleCloudChange)
+    window.addEventListener('tea-spirit-lifecycle-error', handleLifecycleError)
+    return () => {
+      active = false
+      window.removeEventListener('tea-spirit-cloud-changed', handleCloudChange)
+      window.removeEventListener('tea-spirit-lifecycle-error', handleLifecycleError)
+    }
+  }, [])
 
   useEffect(() => {
     const video = videoRef.current
@@ -136,6 +178,12 @@ function ElfPage() {
           aria-label={`${currentStage}阶段茶灵`}
         />
         </div>
+      )}
+      {currentStage === 'complete' && (
+        <p className="elf-lifecycle-status">茶灵已经回到自然中。</p>
+      )}
+      {lifecycleError && (
+        <p className="elf-lifecycle-status is-error">{lifecycleError}</p>
       )}
       <section className="elf-actions" aria-label="茶灵互动">
         {actions.map((action) => (

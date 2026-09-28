@@ -1,6 +1,9 @@
 export const LETTERS_STORAGE_KEY = 'teaSpiritLetters'
 export const SPIRIT_OBTAINED_AT_KEY = 'teaSpiritObtainedAt'
 
+import { getCurrentUser } from './authService'
+import { assertCloudResult, cloudbaseDb } from './cloudbaseClient'
+
 const SPIRIT_LIFETIME_MS = 6 * 60 * 60 * 1000
 
 // Dates verified against the Hong Kong Observatory Gregorian/Lunar calendars.
@@ -15,7 +18,7 @@ export const HOLIDAY_CONFIG = {
 
 const LETTER_TEMPLATES = {
   spirit_grown: {
-    title: '茶灵来信',
+    title: '茶灵长大啦',
     imageUrl: '/letters/spirit-grown.png',
   },
   mid_autumn: {
@@ -38,23 +41,24 @@ const readStoredLetters = () => {
   }
 }
 
-const saveLetters = (letters) => {
+const saveLetters = (letters, notify = true) => {
   localStorage.setItem(LETTERS_STORAGE_KEY, JSON.stringify(letters))
-  window.dispatchEvent(new CustomEvent('tea-spirit-letters-changed'))
+  if (notify) window.dispatchEvent(new CustomEvent('tea-spirit-letters-changed'))
 }
 
-export const getLetters = () =>
+export const getCachedLetters = () =>
   readStoredLetters().sort((a, b) => b.createdAt - a.createdAt)
 
-export const createLetter = ({ id, type, createdAt = Date.now(), payload = {} }) => {
+export const createLocalLetter = ({ id, eventKey = id, type, createdAt = Date.now(), payload = {} }) => {
   const letters = readStoredLetters()
-  if (letters.some((letter) => letter.id === id)) return null
+  if (letters.some((letter) => letter.id === eventKey)) return null
 
   const template = LETTER_TEMPLATES[type]
   if (!template) throw new Error(`Unknown letter type: ${type}`)
 
   const letter = {
-    id,
+    id: eventKey,
+    eventKey,
     type,
     title: template.title,
     createdAt,
@@ -67,13 +71,99 @@ export const createLetter = ({ id, type, createdAt = Date.now(), payload = {} })
   return letter
 }
 
-export const markLetterRead = (id) => {
+const markCachedLetterRead = (id) => {
   const letters = readStoredLetters()
   const nextLetters = letters.map((letter) =>
-    letter.id === id ? { ...letter, read: true } : letter,
+    letter.id === id ? { ...letter, read: true, readAt: Date.now() } : letter,
   )
   saveLetters(nextLetters)
   return nextLetters.find((letter) => letter.id === id) || null
+}
+
+const normalizeCloudLetter = (letter) => ({
+  ...letter,
+  eventKey: letter.event_key,
+  imageUrl: letter.image_url,
+  createdAt: new Date(letter.created_at).getTime(),
+  readAt: letter.read_at ? new Date(letter.read_at).getTime() : null,
+})
+
+export const getLetters = async (userId) => {
+  const identity = await getCurrentUser()
+  if (!identity?.isCloudAuthenticated || !userId) return []
+  const result = await cloudbaseDb.from('letters').select('*')
+    .eq('user_id', userId).order('created_at', { ascending: false })
+  const letters = assertCloudResult(result, 'getLetters').map(normalizeCloudLetter)
+  saveLetters(letters, false)
+  return letters
+}
+
+export const getLetterById = async (letterId, userId) => {
+  const identity = await getCurrentUser()
+  if (!identity?.isCloudAuthenticated || !letterId || !userId) return null
+  const result = await cloudbaseDb.from('letters').select('*')
+    .eq('id', letterId).eq('user_id', userId).maybeSingle()
+  const letter = assertCloudResult(result, 'getLetterById')
+  return letter ? normalizeCloudLetter(letter) : null
+}
+
+export const hasEvent = async (eventKey, userId) => {
+  if (getCachedLetters().some((letter) => (letter.eventKey || letter.id) === eventKey)) return true
+  const identity = await getCurrentUser()
+  if (!identity?.isCloudAuthenticated || !userId) return false
+  const result = await cloudbaseDb.from('letters').select('id')
+    .eq('user_id', userId).eq('event_key', eventKey).limit(1)
+  return assertCloudResult(result, 'hasEvent').length > 0
+}
+
+export const createLetter = async ({
+  userId,
+  teaSpiritId = null,
+  id,
+  eventKey = id,
+  type,
+  createdAt = Date.now(),
+  payload = {},
+}) => {
+  const identity = await getCurrentUser()
+  if (!identity?.isCloudAuthenticated || !userId) {
+    return createLocalLetter({ id: eventKey, eventKey, type, createdAt, payload })
+  }
+  if (await hasEvent(eventKey, userId)) return null
+  const template = LETTER_TEMPLATES[type]
+  if (!template) throw new Error(`Unknown letter type: ${type}`)
+  const result = await cloudbaseDb.from('letters').insert({
+    user_id: userId,
+    tea_spirit_id: teaSpiritId,
+    event_key: eventKey,
+    type,
+    title: template.title,
+    image_url: template.imageUrl,
+    payload,
+    created_at: new Date(createdAt).toISOString(),
+  }).select('*').single()
+  const letter = normalizeCloudLetter(assertCloudResult(result, 'createLetter'))
+  saveLetters([letter, ...getCachedLetters()].filter(
+    (item, index, all) => all.findIndex((entry) => entry.id === item.id) === index,
+  ))
+  return letter
+}
+
+export const markLetterRead = async (id, userId) => {
+  const identity = await getCurrentUser()
+  if (!identity?.isCloudAuthenticated || !userId) return markCachedLetterRead(id)
+  try {
+    const result = await cloudbaseDb.from('letters').update({
+      read: true,
+      read_at: new Date().toISOString(),
+    }).eq('id', id).eq('user_id', userId).select('*').single()
+    const letter = normalizeCloudLetter(assertCloudResult(result, 'markLetterRead'))
+    markCachedLetterRead(id)
+    return letter
+  } catch (error) {
+    console.error('Failed to mark cloud letter as read; updating cache only:', error)
+    return markCachedLetterRead(id)
+  }
 }
 
 export const getOrCreateObtainedAt = (now = Date.now()) => {
@@ -105,14 +195,14 @@ export const evaluateHolidayLetterTriggers = (now = Date.now()) => {
   const holidays = HOLIDAY_CONFIG[year]
 
   if (holidays?.midAutumn && todayKey === getPreviousDateKey(holidays.midAutumn)) {
-    createLetter({ id: `mid-autumn-${year}`, type: 'mid_autumn', createdAt: now })
+    createLocalLetter({ id: `mid-autumn-${year}`, type: 'mid_autumn', createdAt: now })
   }
 
   if (
     holidays?.springFestival &&
     todayKey === getPreviousDateKey(holidays.springFestival)
   ) {
-    createLetter({
+    createLocalLetter({
       id: `spring-festival-${year}`,
       type: 'spring_festival',
       createdAt: now,
@@ -122,7 +212,33 @@ export const evaluateHolidayLetterTriggers = (now = Date.now()) => {
   // Future backend flow:
   // event trigger -> create letter record -> save userId/openid -> attach coupon or
   // campaign payload -> send SMS/WeChat subscription -> open the matching letter.
-  return getLetters()
+  return getCachedLetters()
+}
+
+export const evaluateCloudHolidayLetterTriggers = async (userId, now = Date.now()) => {
+  if (!userId) return getCachedLetters()
+  const today = new Date(now)
+  const year = today.getFullYear()
+  const todayKey = toLocalDateKey(today)
+  const holidays = HOLIDAY_CONFIG[year]
+
+  if (holidays?.midAutumn && todayKey === getPreviousDateKey(holidays.midAutumn)) {
+    await createLetter({
+      userId,
+      eventKey: `mid-autumn-${userId}-${year}`,
+      type: 'mid_autumn',
+      createdAt: now,
+    })
+  }
+  if (holidays?.springFestival && todayKey === getPreviousDateKey(holidays.springFestival)) {
+    await createLetter({
+      userId,
+      eventKey: `spring-festival-${userId}-${year}`,
+      type: 'spring_festival',
+      createdAt: now,
+    })
+  }
+  return getLetters(userId)
 }
 
 export { SPIRIT_LIFETIME_MS }

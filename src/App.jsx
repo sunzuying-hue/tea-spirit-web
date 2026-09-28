@@ -6,40 +6,64 @@ import LettersPage from './pages/LettersPage'
 import MyPage from './pages/MyPage'
 import './App.css'
 import {
-  evaluateLetterTriggers,
-} from './services/lifecycleService'
-import {
-  getOrCreateObtainedAt,
-  SPIRIT_LIFETIME_MS,
-} from './services/letterService'
+  syncUserLifecycle,
+} from './services/teaSpiritService'
+import { getCurrentUser } from './services/authService'
 
 const pages = { elf: ElfPage, letters: LettersPage, my: MyPage }
 
 function App() {
-  const [hasEntered, setHasEntered] = useState(false)
-  const [activeTab, setActiveTab] = useState('elf')
+  const [targetLetterId] = useState(() => new URLSearchParams(window.location.search).get('letter'))
+  const [hasEntered, setHasEntered] = useState(() => Boolean(targetLetterId))
+  const [activeTab, setActiveTab] = useState(() => targetLetterId ? 'my' : 'elf')
 
   useEffect(() => {
-    const evaluate = () => evaluateLetterTriggers(Date.now())
-    const obtainedAt = getOrCreateObtainedAt()
-    const remaining = SPIRIT_LIFETIME_MS - (Date.now() - obtainedAt)
-    const maturityTimer = remaining > 0 ? window.setTimeout(evaluate, remaining) : null
+    const syncCloudData = async () => {
+      try {
+        await syncUserLifecycle()
+      } catch (error) {
+        console.error('[Lifecycle] completion failed', {
+          code: error?.code || 'UNKNOWN',
+          message: error?.message || 'Unknown error',
+        })
+      }
+    }
+    const lifecycleClock = window.setInterval(syncCloudData, 60 * 1000)
 
-    evaluate()
-    window.addEventListener('focus', evaluate)
-    document.addEventListener('visibilitychange', evaluate)
+    syncCloudData()
+    window.addEventListener('focus', syncCloudData)
+    window.addEventListener('tea-spirit-auth-changed', syncCloudData)
+    document.addEventListener('visibilitychange', syncCloudData)
 
     return () => {
-      if (maturityTimer) window.clearTimeout(maturityTimer)
-      window.removeEventListener('focus', evaluate)
-      document.removeEventListener('visibilitychange', evaluate)
+      window.clearInterval(lifecycleClock)
+      window.removeEventListener('focus', syncCloudData)
+      window.removeEventListener('tea-spirit-auth-changed', syncCloudData)
+      document.removeEventListener('visibilitychange', syncCloudData)
     }
   }, [])
+
+  useEffect(() => {
+    if (!targetLetterId) return
+    const routeDeepLink = async () => {
+      const identity = await getCurrentUser()
+      setActiveTab(identity?.isCloudAuthenticated ? 'letters' : 'my')
+    }
+    routeDeepLink()
+  }, [targetLetterId])
 
   if (!hasEntered) return <LaunchPage onEnter={() => setHasEntered(true)} />
 
   const ActivePage = pages[activeTab]
-  return <div className="app-shell"><ActivePage /><BottomTabs activeTab={activeTab} onChange={setActiveTab} /></div>
+  const pageProps = activeTab === 'letters'
+    ? { targetLetterId }
+    : activeTab === 'my'
+      ? {
+          openPhoneLogin: Boolean(targetLetterId),
+          onLoginComplete: () => setActiveTab(targetLetterId ? 'letters' : 'my'),
+        }
+      : {}
+  return <div className="app-shell"><ActivePage {...pageProps} /><BottomTabs activeTab={activeTab} onChange={setActiveTab} /></div>
 }
 
 export default App

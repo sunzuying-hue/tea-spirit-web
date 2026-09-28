@@ -1,8 +1,15 @@
 import { useEffect, useState } from 'react'
 import {
+  getCachedUserProfile,
   getUserProfile,
-  loginWithWeChat,
 } from '../services/userService'
+import {
+  loginAsDevUser,
+  getCurrentUser,
+  sendPhoneVerificationCode,
+  signInWithPhoneVerificationCode,
+  subscribeToAuthChanges,
+} from '../services/authService'
 
 const PROFILE_MEMORY_IMAGE = '/profile/tea-spirit-memory.jpg'
 const PROFILE_POEM_IMAGE = '/profile/tea-poem.png'
@@ -16,8 +23,9 @@ const formatVisitDate = (timestamp) => {
   return `${year}年${month}月${day}日`
 }
 
-function UserInfoCard({ userProfile, onLogin }) {
-  const isLoggedIn = Boolean(userProfile.userId)
+function UserInfoCard({ userProfile, onLogin, onDevLogin, loading }) {
+  const isLoggedIn = userProfile.authStatus === 'authenticated' || userProfile.authProvider === 'dev'
+  const hasProfileError = userProfile.profileStatus === 'error'
 
   return (
     <section className="my-user-info" aria-label="用户信息">
@@ -28,12 +36,95 @@ function UserInfoCard({ userProfile, onLogin }) {
       />
       <div className="my-user-copy">
         <strong>{userProfile.nickname}</strong>
-        <button type="button" onClick={onLogin} disabled={isLoggedIn}>
-          {isLoggedIn ? '已登录（本地模拟）' : '微信登录'}
+        <button type="button" onClick={onLogin} disabled={isLoggedIn || loading}>
+          {isLoggedIn
+            ? hasProfileError ? '已登录，资料加载失败' : `已登录（${userProfile.authProvider || '本地'}）`
+            : '手机号登录'}
         </button>
+        {import.meta.env.DEV && !isLoggedIn && (
+          <button type="button" onClick={onDevLogin} disabled={loading}>开发体验</button>
+        )}
         <p>初次到访：<span>{formatVisitDate(userProfile.firstVisitAt)}</span></p>
       </div>
     </section>
+  )
+}
+
+function PhoneLoginPanel({ onSuccess, onCancel }) {
+  const [phone, setPhone] = useState('')
+  const [code, setCode] = useState('')
+  const [countdown, setCountdown] = useState(0)
+  const [sending, setSending] = useState(false)
+  const [loggingIn, setLoggingIn] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!countdown) return undefined
+    const timer = window.setInterval(() => setCountdown((value) => Math.max(0, value - 1)), 1000)
+    return () => window.clearInterval(timer)
+  }, [countdown])
+
+  const handleSendCode = async () => {
+    setSending(true)
+    setError('')
+    try {
+      const result = await sendPhoneVerificationCode(phone)
+      if (!result.success) return setError(result.error)
+      setCountdown(60)
+    } catch (sendError) {
+      console.error('Failed to send phone verification code:', sendError)
+      setError('验证码发送失败，请稍后重试。')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    setLoggingIn(true)
+    setError('')
+    try {
+      const result = await signInWithPhoneVerificationCode(phone, code)
+      if (!result.success) return setError(result.error)
+      await onSuccess()
+    } catch (loginError) {
+      console.error('Phone sign-in failed:', loginError)
+      setError('登录失败，请检查验证码后重试。')
+    } finally {
+      setLoggingIn(false)
+    }
+  }
+
+  return (
+    <form className="phone-login-panel" onSubmit={handleSubmit} aria-label="手机号登录">
+      <button className="phone-login-close" type="button" onClick={onCancel} aria-label="关闭登录">×</button>
+      <strong>手机号登录</strong>
+      <input
+        type="tel"
+        inputMode="tel"
+        autoComplete="tel"
+        placeholder="请输入手机号"
+        value={phone}
+        onChange={(event) => setPhone(event.target.value)}
+      />
+      <div className="phone-code-row">
+        <input
+          type="text"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          placeholder="验证码"
+          value={code}
+          onChange={(event) => setCode(event.target.value)}
+        />
+        <button type="button" onClick={handleSendCode} disabled={sending || countdown > 0}>
+          {sending ? '发送中…' : countdown > 0 ? `${countdown}秒` : '获取验证码'}
+        </button>
+      </div>
+      <button type="submit" disabled={loggingIn || !phone || !code}>
+        {loggingIn ? '登录中…' : '登录'}
+      </button>
+      {error && <p role="alert">{error}</p>}
+    </form>
   )
 }
 
@@ -58,18 +149,64 @@ function MemoryPhotoCard() {
   )
 }
 
-function MyPage() {
-  const [userProfile, setUserProfile] = useState(() => getUserProfile())
+function MyPage({ openPhoneLogin = false, onLoginComplete }) {
+  const [userProfile, setUserProfile] = useState(() => getCachedUserProfile())
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [showPhoneLogin, setShowPhoneLogin] = useState(openPhoneLogin)
 
   useEffect(() => {
-    const refreshProfile = () => setUserProfile(getUserProfile())
-    window.addEventListener('tea-spirit-user-changed', refreshProfile)
-    return () => window.removeEventListener('tea-spirit-user-changed', refreshProfile)
+    const refreshProfile = async () => {
+      try {
+        const profile = await getUserProfile()
+        setUserProfile(profile)
+        setError(profile.profileStatus === 'error'
+          ? '网络好像开小差了，请稍后再试。'
+          : '')
+        if (import.meta.env.DEV) console.info('[MyPage] profile updated')
+      } catch (loadError) {
+        console.error('Failed to load user profile:', loadError)
+        setError('网络好像开小差了，请稍后再试。')
+      } finally {
+        setLoading(false)
+      }
+    }
+    refreshProfile()
+    const unsubscribeAuth = subscribeToAuthChanges(refreshProfile)
+    window.addEventListener('tea-spirit-user-refresh', refreshProfile)
+    return () => {
+      unsubscribeAuth()
+      window.removeEventListener('tea-spirit-user-refresh', refreshProfile)
+    }
   }, [])
 
-  const handleLogin = async () => {
-    const profile = await loginWithWeChat()
+  const handleLogin = () => setShowPhoneLogin(true)
+
+  const handlePhoneLoginSuccess = async () => {
+    setLoading(true)
+    const authUser = await getCurrentUser()
+    if (!authUser?.authUid) {
+      setError('验证码已提交，但没有取得有效登录状态。')
+      setLoading(false)
+      return
+    }
+    const profile = await getUserProfile()
     setUserProfile(profile)
+    if (import.meta.env.DEV) console.info('[MyPage] profile updated')
+    setShowPhoneLogin(false)
+    setError(profile.profileStatus === 'error'
+      ? '网络好像开小差了，请稍后再试。'
+      : '')
+    setLoading(false)
+    onLoginComplete?.(profile)
+  }
+
+  const handleDevLogin = async () => {
+    setLoading(true)
+    await loginAsDevUser()
+    setUserProfile(await getUserProfile())
+    setError('开发体验身份仅保存在当前设备，不是微信 openid。')
+    setLoading(false)
   }
 
   return (
@@ -80,7 +217,20 @@ function MyPage() {
           src="/profile/my-page-reference.png"
           alt=""
         />
-        <UserInfoCard userProfile={userProfile} onLogin={handleLogin} />
+        <UserInfoCard
+          userProfile={userProfile}
+          onLogin={handleLogin}
+          onDevLogin={handleDevLogin}
+          loading={loading}
+        />
+        {loading && <p className="my-data-status">正在读取资料…</p>}
+        {error && <p className="my-data-status">{error}</p>}
+        {showPhoneLogin && (
+          <PhoneLoginPanel
+            onSuccess={handlePhoneLoginSuccess}
+            onCancel={() => setShowPhoneLogin(false)}
+          />
+        )}
         <CompanionCard count={userProfile.companionCount} />
         <MemoryPhotoCard />
       </div>
