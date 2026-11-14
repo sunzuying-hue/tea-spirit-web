@@ -118,6 +118,14 @@ function ElfPage({ onGuideLetterHighlight }) {
       const stage = isDevSession()
         ? calculateDevStage(sourceObtainedAt, Date.now())
         : getSpiritStage(sourceObtainedAt, Date.now())
+      if (
+        !isDevSession() &&
+        stage === 'complete' &&
+        cloudSpirit?.id &&
+        cloudSpirit.status !== 'completed'
+      ) {
+        void syncTeaSpiritLifecycle()
+      }
       setCurrentStage(cloudSpirit?.status === 'completed'
         ? 'complete'
         : stage === 'middle' ? 'mid' : stage === 'completed' ? 'complete' : stage)

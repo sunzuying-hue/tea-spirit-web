@@ -11,13 +11,13 @@ import { isDevSession } from '../dev/devSession'
 
 export const SPIRIT_STAGE_DURATION_MS = 2 * 60 * 60 * 1000
 export const SPIRIT_LIFETIME_MS = 6 * 60 * 60 * 1000
-// 发布前必须保持 TEST_SPEED = 1
-export const TEST_SPEED = 1
+// GitHub 演示测试版：120 倍速，即每阶段 1 分钟、完整周期 3 分钟。
+export const TEST_SPEED = 120
 
 let pendingLifecycleSync = null
 
 export const calculateStage = (obtainedAt, now = Date.now()) => {
-  const elapsed = Math.max(0, now - new Date(obtainedAt).getTime())
+  const elapsed = Math.max(0, now - new Date(obtainedAt).getTime()) * TEST_SPEED
   if (elapsed >= SPIRIT_LIFETIME_MS) return 'completed'
   if (elapsed >= SPIRIT_STAGE_DURATION_MS * 2) return 'late'
   if (elapsed >= SPIRIT_STAGE_DURATION_MS) return 'middle'
@@ -139,7 +139,7 @@ const synchronizeLifecycle = async () => {
   })
   if (!spirit) return null
 
-  const elapsed = Math.max(0, Date.now() - new Date(spirit.obtained_at).getTime())
+  const elapsed = Math.max(0, Date.now() - new Date(spirit.obtained_at).getTime()) * TEST_SPEED
   if (elapsed >= SPIRIT_LIFETIME_MS) {
     if (import.meta.env.DEV) console.info('[Lifecycle] elapsed reached completed stage')
     if (spirit.status !== 'completed') {
