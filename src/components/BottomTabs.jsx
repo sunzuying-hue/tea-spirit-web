@@ -8,12 +8,12 @@ const tabs = [
   { id: 'my', label: '我的', image: myTab },
 ]
 
-function BottomTabs({ activeTab, onChange }) {
+function BottomTabs({ activeTab, onChange, highlightLetters = false }) {
   return (
     <nav className="bottom-tabs" aria-label="主导航">
       {tabs.map((tab) => (
         <button
-          className={`tab-button ${activeTab === tab.id ? 'is-active' : ''}`}
+          className={`tab-button ${activeTab === tab.id ? 'is-active' : ''}${highlightLetters && tab.id === 'letters' ? ' is-guide-highlight' : ''}`}
           key={tab.id}
           type="button"
           aria-label={tab.label}

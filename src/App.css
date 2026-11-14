@@ -4,6 +4,69 @@
   background: #f7f2e8;
 }
 
+.dev-entry-choice {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  color: #344d3c;
+  background:
+    radial-gradient(circle at 50% 25%, rgba(207, 222, 190, 0.52), transparent 38%),
+    #f7f2e8;
+}
+
+.dev-entry-card {
+  width: min(100%, 340px);
+  display: grid;
+  gap: 12px;
+  padding: 28px 24px;
+  border: 1px solid rgba(78, 108, 80, 0.25);
+  border-radius: 22px;
+  background: rgba(252, 249, 239, 0.92);
+  box-shadow: 0 12px 32px rgba(54, 73, 57, 0.12);
+  text-align: center;
+}
+
+.dev-entry-card > span {
+  justify-self: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: rgba(55, 82, 61, 0.72);
+  background: rgba(204, 221, 187, 0.55);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.dev-entry-card h1 {
+  margin: 2px 0 0;
+  font-family: "STKaiti", "KaiTi", "FangSong", serif;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.dev-entry-card p {
+  margin: 0 0 8px;
+  color: rgba(52, 77, 60, 0.7);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.dev-entry-card button {
+  min-height: 46px;
+  cursor: pointer;
+  border: 1px solid rgba(67, 103, 73, 0.35);
+  border-radius: 12px;
+  color: #365a40;
+  background: #e6edd7;
+  font-family: "STKaiti", "KaiTi", "FangSong", serif;
+  font-size: 16px;
+}
+
+.dev-entry-card button.is-secondary {
+  background: rgba(250, 247, 238, 0.8);
+}
+
 .launch-page {
   position: relative;
   width: 100%;
@@ -37,6 +100,40 @@
 .launch-enter-hotspot:focus-visible {
   outline: 2px solid rgba(55, 92, 67, 0.78);
   outline-offset: 3px;
+}
+
+.launch-scroll-hint {
+  position: fixed;
+  z-index: 2;
+  left: 50%;
+  bottom: calc(30px + env(safe-area-inset-bottom));
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  pointer-events: none;
+  color: rgba(55, 83, 65, 0.66);
+  font-family: "STKaiti", "KaiTi", "FangSong", serif;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  transform: translateX(-50%);
+  transition: opacity 350ms ease, visibility 350ms ease;
+}
+
+.launch-scroll-hint.is-hidden {
+  visibility: hidden;
+  opacity: 0;
+}
+
+.launch-scroll-chevron {
+  font-family: serif;
+  font-size: 21px;
+  line-height: 0.8;
+  animation: launch-scroll-cue 1.8s ease-in-out infinite;
+}
+
+@keyframes launch-scroll-cue {
+  0%, 100% { opacity: 0.45; transform: translateY(0); }
+  50% { opacity: 0.8; transform: translateY(5px); }
 }
 
 .main-page {
@@ -125,6 +222,170 @@
   cursor: default;
 }
 
+.elf-help-bubble {
+  position: absolute;
+  z-index: 5;
+  top: clamp(82px, 12svh, 112px);
+  right: max(18px, calc((100% - 430px) / 2 + 18px));
+  width: min(65vw, 278px);
+  margin: 0;
+  border: 1px solid rgba(91, 127, 91, 0.22);
+  border-radius: 20px 20px 18px 20px;
+  color: #294a36;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.25), rgba(225, 239, 213, 0.08)),
+    rgba(184, 211, 174, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.48),
+    inset 0 -1px 0 rgba(86, 118, 84, 0.08),
+    0 7px 18px rgba(58, 80, 59, 0.1);
+  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
+}
+
+.elf-guide-text-layer {
+  position: absolute;
+  z-index: 5;
+  top: max(calc(env(safe-area-inset-top) + 18px), calc(10svh - 52px));
+  right: 16px;
+  width: min(78vw, 320px);
+  min-height: 58px;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  animation: elf-guide-text-enter 380ms ease both;
+  transition: opacity 300ms ease;
+}
+
+.elf-guide-text-layer.is-guide-step-1 { --guide-image-width: 195px; }
+.elf-guide-text-layer.is-guide-step-2 { --guide-image-width: 169px; }
+.elf-guide-text-layer.is-guide-step-3 { --guide-image-width: 136px; }
+.elf-guide-text-layer.is-guide-step-4 { --guide-image-width: 182px; }
+.elf-guide-text-layer.is-guide-step-5 { --guide-image-width: 257px; }
+.elf-guide-text-layer.is-guide-step-6 { --guide-image-width: 226px; }
+.elf-guide-text-layer.is-guide-step-7 { --guide-image-width: 177px; }
+.elf-guide-text-layer.is-guide-step-8 { --guide-image-width: 224px; }
+
+.elf-guide-text-layer.is-talk-step,
+.elf-guide-text-layer.is-care-step {
+  top: auto;
+  bottom: calc(250px + env(safe-area-inset-bottom));
+}
+
+.elf-guide-text-layer.is-talk-step {
+  right: auto;
+  left: 8px;
+  width: min(62vw, 250px);
+}
+
+.elf-guide-text-layer.is-care-step {
+  right: 8px;
+  width: min(72vw, 290px);
+}
+
+.elf-help-bubble::after {
+  content: "";
+  position: absolute;
+  right: 24%;
+  bottom: -8px;
+  width: 15px;
+  height: 15px;
+  border-right: 1px solid rgba(91, 127, 91, 0.18);
+  border-bottom: 1px solid rgba(91, 127, 91, 0.18);
+  background: rgba(184, 211, 174, 0.45);
+  transform: rotate(45deg);
+}
+
+.elf-guide-image {
+  display: block;
+  width: min(var(--guide-image-width), 80vw);
+  max-width: none;
+  height: auto;
+  border: 0;
+  background: transparent;
+  opacity: 1;
+  transition: opacity 300ms ease;
+}
+
+.elf-guide-text-layer.is-switching .elf-guide-image {
+  opacity: 0;
+}
+
+.elf-help-button:focus-visible,
+.elf-help-bubble button:focus-visible {
+  outline: 2px solid rgba(55, 92, 67, 0.7);
+  outline-offset: 3px;
+}
+
+@keyframes elf-guide-text-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.elf-action-button.is-guide-highlight {
+  animation: elf-action-guide-glow 1.2s ease-in-out infinite;
+}
+
+@keyframes elf-action-guide-glow {
+  0%, 100% {
+    opacity: 1;
+    transform: translateY(0);
+    box-shadow: 0 0 0 0 rgba(204, 220, 129, 0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-2px);
+    background: rgba(239, 243, 190, 0.2);
+    box-shadow: 0 0 16px 6px rgba(199, 218, 126, 0.34);
+  }
+}
+
+.elf-help-button {
+  position: absolute;
+  z-index: 5;
+  top: max(18px, env(safe-area-inset-top));
+  right: max(18px, calc((100% - 430px) / 2 + 18px));
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  cursor: pointer;
+  border: 1px solid rgba(80, 112, 82, 0.26);
+  border-radius: 50%;
+  color: rgba(47, 79, 57, 0.72);
+  background: rgba(234, 242, 222, 0.48);
+  box-shadow: 0 3px 10px rgba(68, 86, 65, 0.08);
+  font-family: "STKaiti", "KaiTi", serif;
+  font-size: 18px;
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+}
+
+.elf-help-bubble {
+  top: max(58px, calc(env(safe-area-inset-top) + 48px));
+  right: max(16px, calc((100% - 430px) / 2 + 16px));
+  padding: 15px 34px 15px 17px;
+  font-family: "STKaiti", "KaiTi", "FangSong", serif;
+  font-size: clamp(13px, 3.4vw, 16px);
+  line-height: 1.55;
+  animation: elf-bubble-enter 300ms ease both;
+}
+
+.elf-help-bubble p { margin: 0; }
+
+.elf-help-bubble button {
+  position: absolute;
+  top: 4px;
+  right: 7px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  cursor: pointer;
+  border: 0;
+  color: rgba(47, 79, 57, 0.72);
+  background: transparent;
+  font-size: 20px;
+}
+
 .my-page {
   height: 100svh;
   padding-bottom: calc(116px + env(safe-area-inset-bottom));
@@ -201,6 +462,13 @@
 
 .my-user-copy button:not(:disabled) {
   cursor: pointer;
+}
+
+.my-user-copy .dev-login-button {
+  border-style: dashed;
+  color: rgba(61, 96, 71, 0.78);
+  background: rgba(244, 240, 222, 0.48);
+  font-size: clamp(9px, 2.5vw, 12px);
 }
 
 .my-user-copy p {
@@ -315,15 +583,20 @@
 }
 
 .my-memory > img {
-  width: 48%;
-  height: 72%;
+  position: absolute;
+  top: -4.8%;
+  left: -0.4%;
+  width: 49.7%;
+  height: 87.5%;
   object-fit: cover;
-  object-position: center 18%;
-  border: 1px solid rgba(105, 126, 96, 0.28);
+  object-position: center 20%;
+  border: 0;
 }
 
 .my-memory > .my-poem-image {
   position: absolute;
+  top: auto;
+  left: auto;
   right: -1%;
   bottom: -2%;
   width: 58%;
@@ -452,10 +725,84 @@
   background: rgba(103, 132, 104, 0.24);
 }
 
+.tab-button.is-guide-highlight img {
+  animation: letter-tab-guide-glow 1.2s ease-in-out both;
+}
+
+@keyframes letter-tab-guide-glow {
+  0%, 100% { opacity: 0.62; filter: drop-shadow(0 0 0 rgba(218, 226, 145, 0)); }
+  50% { opacity: 1; filter: drop-shadow(0 0 10px rgba(205, 219, 122, 0.75)); transform: scale(1.02) translateY(-2px); }
+}
+
 .tab-button:focus-visible {
   outline: 2px solid rgba(55, 92, 67, 0.65);
   outline-offset: -6px;
   border-radius: 18px;
+}
+
+.dev-panel {
+  position: fixed;
+  z-index: 40;
+  top: max(10px, env(safe-area-inset-top));
+  left: max(10px, calc(50% - 205px));
+  font-family: system-ui, sans-serif;
+}
+
+.dev-panel-toggle {
+  width: 42px;
+  height: 28px;
+  padding: 0;
+  cursor: pointer;
+  border: 1px solid rgba(54, 81, 61, 0.35);
+  border-radius: 8px;
+  color: #36513d;
+  background: rgba(248, 245, 235, 0.9);
+  box-shadow: 0 3px 10px rgba(40, 55, 44, 0.12);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.dev-panel-body {
+  width: min(290px, calc(100vw - 28px));
+  margin-top: 6px;
+  padding: 12px;
+  border: 1px solid rgba(54, 81, 61, 0.28);
+  border-radius: 12px;
+  color: #314b3b;
+  background: rgba(250, 247, 238, 0.97);
+  box-shadow: 0 8px 24px rgba(40, 55, 44, 0.18);
+}
+
+.dev-panel-body strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.dev-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.dev-panel-grid button {
+  min-height: 32px;
+  padding: 5px 7px;
+  cursor: pointer;
+  border: 1px solid rgba(72, 105, 78, 0.28);
+  border-radius: 7px;
+  color: #36513d;
+  background: #eef1df;
+  font-size: 11px;
+}
+
+.dev-panel-body small {
+  display: block;
+  min-height: 1.4em;
+  margin-top: 7px;
+  color: #5d705f;
+  font-size: 10px;
 }
 
 @media (min-width: 431px) {
@@ -465,4 +812,31 @@
   .main-page { min-height: min(852px, calc(100svh - 48px)); }
   .elf-actions { bottom: calc(118px + env(safe-area-inset-bottom)); }
   .bottom-tabs { bottom: 24px; border-radius: 0 0 34px 34px; }
+}
+
+@media (max-width: 360px) {
+  .elf-help-bubble {
+    right: 12px;
+    width: min(68vw, 238px);
+  }
+}
+
+@media (max-height: 700px) {
+  .elf-guide-text-layer {
+    top: max(calc(env(safe-area-inset-top) + 16px), calc(8svh - 50px));
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .launch-scroll-chevron,
+  .elf-action-button.is-guide-highlight,
+  .tab-button.is-guide-highlight img {
+    animation: none;
+  }
+
+  .elf-guide-text-layer,
+  .elf-help-bubble {
+    animation-duration: 1ms;
+  }
 }

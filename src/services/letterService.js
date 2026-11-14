@@ -3,6 +3,8 @@ export const SPIRIT_OBTAINED_AT_KEY = 'teaSpiritObtainedAt'
 
 import { getCurrentUser } from './authService'
 import { assertCloudResult, cloudbaseDb } from './cloudbaseClient'
+import { getDevLetters, markDevLetterRead } from '../dev/devDataStore'
+import { isDevSession } from '../dev/devSession'
 
 const SPIRIT_LIFETIME_MS = 6 * 60 * 60 * 1000
 
@@ -89,6 +91,7 @@ const normalizeCloudLetter = (letter) => ({
 })
 
 export const getLetters = async (userId) => {
+  if (isDevSession()) return getDevLetters()
   const identity = await getCurrentUser()
   if (!identity?.isCloudAuthenticated || !userId) return []
   const result = await cloudbaseDb.from('letters').select('*')
@@ -99,6 +102,9 @@ export const getLetters = async (userId) => {
 }
 
 export const getLetterById = async (letterId, userId) => {
+  if (isDevSession()) {
+    return getDevLetters().find((letter) => letter.id === letterId) || null
+  }
   const identity = await getCurrentUser()
   if (!identity?.isCloudAuthenticated || !letterId || !userId) return null
   const result = await cloudbaseDb.from('letters').select('*')
@@ -150,6 +156,7 @@ export const createLetter = async ({
 }
 
 export const markLetterRead = async (id, userId) => {
+  if (isDevSession()) return markDevLetterRead(id)
   const identity = await getCurrentUser()
   if (!identity?.isCloudAuthenticated || !userId) return markCachedLetterRead(id)
   try {

@@ -1,5 +1,7 @@
 import { getCurrentUser, loginWithWeChat } from './authService'
 import { assertCloudResult, cloudbaseDb } from './cloudbaseClient'
+import { getDevProfile, saveDevProfile } from '../dev/devDataStore'
+import { isDevSession } from '../dev/devSession'
 
 export const USER_STORAGE_KEY = 'teaSpiritUser'
 
@@ -43,9 +45,11 @@ const readStoredProfile = () => {
   }
 }
 
-export const getCachedUserProfile = () => readStoredProfile() || { ...EMPTY_PROFILE }
+export const getCachedUserProfile = () =>
+  isDevSession() ? getDevProfile() : readStoredProfile() || { ...EMPTY_PROFILE }
 
 export const saveUserProfileCache = (profile) => {
+  if (isDevSession()) return saveDevProfile(profile)
   const current = readStoredProfile()
   const next = normalizeProfile({
     ...current,
@@ -64,14 +68,7 @@ const loadOrCreateCloudUser = async () => {
   // A dev identity stays local-only. Without a verifiable CloudBase JWT it cannot be
   // mapped safely by PostgreSQL RLS and must never be treated as a real openid.
   if (!identity.isCloudAuthenticated) {
-    return saveUserProfileCache({
-      authProvider: 'dev',
-      authSubject: identity.authSubject,
-      nickname: '开发体验用户',
-      firstVisitAt: getCachedUserProfile().firstVisitAt || Date.now(),
-      authStatus: 'authenticated',
-      profileStatus: 'ready',
-    })
+    return getDevProfile()
   }
 
   if (import.meta.env.DEV) console.info('[UserService] looking up user')
@@ -135,6 +132,7 @@ export const getOrCreateUser = async () => {
 
 export const getUserProfile = async () => {
   const identity = await getCurrentUser()
+  if (isDevSession()) return getDevProfile()
   if (!identity?.isCloudAuthenticated) return getCachedUserProfile()
   try {
     return await getOrCreateUser()

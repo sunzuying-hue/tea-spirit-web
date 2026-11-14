@@ -2,6 +2,12 @@ import { assertCloudResult, cloudbaseDb } from './cloudbaseClient'
 import { getCurrentUser } from './authService'
 import { getOrCreateUser } from './userService'
 import { getLetters } from './letterService'
+import {
+  getDevSpirit,
+  setDevStage,
+  syncDevLifecycle,
+} from '../dev/devDataStore'
+import { isDevSession } from '../dev/devSession'
 
 export const SPIRIT_STAGE_DURATION_MS = 2 * 60 * 60 * 1000
 export const SPIRIT_LIFETIME_MS = 6 * 60 * 60 * 1000
@@ -24,6 +30,10 @@ const requireCloudIdentity = async () => {
 }
 
 export const getCurrentTeaSpirit = async (userId) => {
+  if (isDevSession()) {
+    const spirit = getDevSpirit()
+    return spirit.status === 'active' ? spirit : null
+  }
   if (!(await requireCloudIdentity()) || !userId) return null
   const result = await cloudbaseDb.from('tea_spirits').select('*')
     .eq('user_id', userId).eq('status', 'active')
@@ -32,6 +42,7 @@ export const getCurrentTeaSpirit = async (userId) => {
 }
 
 export const getLatestTeaSpirit = async (userId) => {
+  if (isDevSession()) return getDevSpirit()
   if (!(await requireCloudIdentity()) || !userId) return null
   const result = await cloudbaseDb.from('tea_spirits').select('*')
     .eq('user_id', userId)
@@ -40,6 +51,7 @@ export const getLatestTeaSpirit = async (userId) => {
 }
 
 export const createTeaSpirit = async ({ userId, obtainedAt = Date.now() }) => {
+  if (isDevSession()) return getDevSpirit()
   if (!(await requireCloudIdentity()) || !userId) return null
   const obtainedDate = new Date(obtainedAt)
   try {
@@ -70,6 +82,7 @@ export const migrateLocalTeaSpiritOnce = async ({ userId, obtainedAt }) => {
 }
 
 export const completeTeaSpirit = async (teaSpiritId) => {
+  if (isDevSession()) return setDevStage('completed')
   if (!(await requireCloudIdentity()) || !teaSpiritId) return null
   if (import.meta.env.DEV) console.info('[Lifecycle] completing tea spirit:', teaSpiritId)
   try {
@@ -101,6 +114,21 @@ export const completeTeaSpirit = async (teaSpiritId) => {
 }
 
 const synchronizeLifecycle = async () => {
+  if (isDevSession()) {
+    const spirit = syncDevLifecycle()
+    const profile = await getOrCreateUser()
+    const letters = await getLetters(profile.id)
+    window.dispatchEvent(new CustomEvent('tea-spirit-cloud-changed', {
+      detail: { spirit },
+    }))
+    window.dispatchEvent(new CustomEvent('tea-spirit-user-refresh', {
+      detail: { profile },
+    }))
+    window.dispatchEvent(new CustomEvent('tea-spirit-letters-refresh', {
+      detail: { letters },
+    }))
+    return spirit
+  }
   const profile = await getOrCreateUser()
   if (!profile.id || profile.authStatus !== 'authenticated') return null
 

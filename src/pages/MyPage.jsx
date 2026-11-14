@@ -4,7 +4,6 @@ import {
   getUserProfile,
 } from '../services/userService'
 import {
-  loginAsDevUser,
   getCurrentUser,
   sendPhoneVerificationCode,
   signInWithPhoneVerificationCode,
@@ -23,7 +22,7 @@ const formatVisitDate = (timestamp) => {
   return `${year}年${month}月${day}日`
 }
 
-function UserInfoCard({ userProfile, onLogin, onDevLogin, loading }) {
+function UserInfoCard({ userProfile, onLogin, loading }) {
   const isLoggedIn = userProfile.authStatus === 'authenticated' || userProfile.authProvider === 'dev'
   const hasProfileError = userProfile.profileStatus === 'error'
 
@@ -41,9 +40,6 @@ function UserInfoCard({ userProfile, onLogin, onDevLogin, loading }) {
             ? hasProfileError ? '已登录，资料加载失败' : `已登录（${userProfile.authProvider || '本地'}）`
             : '手机号登录'}
         </button>
-        {import.meta.env.DEV && !isLoggedIn && (
-          <button type="button" onClick={onDevLogin} disabled={loading}>开发体验</button>
-        )}
         <p>初次到访：<span>{formatVisitDate(userProfile.firstVisitAt)}</span></p>
       </div>
     </section>
@@ -201,14 +197,6 @@ function MyPage({ openPhoneLogin = false, onLoginComplete }) {
     onLoginComplete?.(profile)
   }
 
-  const handleDevLogin = async () => {
-    setLoading(true)
-    await loginAsDevUser()
-    setUserProfile(await getUserProfile())
-    setError('开发体验身份仅保存在当前设备，不是微信 openid。')
-    setLoading(false)
-  }
-
   return (
     <main className="main-page my-page" aria-label="我的">
       <div className="my-page-canvas">
@@ -220,7 +208,6 @@ function MyPage({ openPhoneLogin = false, onLoginComplete }) {
         <UserInfoCard
           userProfile={userProfile}
           onLogin={handleLogin}
-          onDevLogin={handleDevLogin}
           loading={loading}
         />
         {loading && <p className="my-data-status">正在读取资料…</p>}

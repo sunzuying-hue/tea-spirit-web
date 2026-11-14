@@ -1,4 +1,10 @@
 import { cloudbaseAuth } from './cloudbaseClient'
+import {
+  DEV_USER,
+  endDevSession,
+  isDevSession,
+  startDevSession,
+} from '../dev/devSession'
 
 export const AUTH_STORAGE_KEY = 'teaSpiritAuth'
 export const AUTH_PROVIDER_STORAGE_KEY = 'teaSpiritAuthProvider'
@@ -13,6 +19,7 @@ const maskPhone = (phone) => `****${phone.slice(-4)}`
 const maskUid = (uid) => uid.length > 10 ? `${uid.slice(0, 6)}…${uid.slice(-4)}` : uid
 
 const readDevAuth = () => {
+  if (!import.meta.env.DEV) return null
   try {
     const value = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || 'null')
     return value?.authProvider === 'dev' ? value : null
@@ -23,6 +30,7 @@ const readDevAuth = () => {
 }
 
 export const getCurrentUser = async () => {
+  if (isDevSession()) return DEV_USER
   const cloudUser = await cloudbaseAuth.getCurrentUser()
   const uid = cloudUser?.uid || cloudUser?.id
   if (uid) {
@@ -106,21 +114,14 @@ export const loginWithApple = async () => ({
 })
 
 export const loginAsDevUser = async () => {
-  const existing = readDevAuth()
-  const identity = existing || {
-    authProvider: 'dev',
-    authSubject: `dev_user_${crypto.randomUUID()}`,
-    openid: null,
-    unionid: null,
-  }
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(identity))
-  window.dispatchEvent(new CustomEvent('tea-spirit-auth-changed'))
-  return { ...identity, isCloudAuthenticated: false }
+  if (!import.meta.env.DEV) return null
+  return startDevSession()
 }
 
 export const logout = async () => {
   const current = await getCurrentUser()
   if (current?.isCloudAuthenticated) await cloudbaseAuth.signOut()
+  endDevSession()
   localStorage.removeItem(AUTH_STORAGE_KEY)
   localStorage.removeItem(AUTH_PROVIDER_STORAGE_KEY)
   window.dispatchEvent(new CustomEvent('tea-spirit-auth-changed'))
