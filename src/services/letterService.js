@@ -5,6 +5,7 @@ import { getCurrentUser } from './authService'
 import { assertCloudResult, cloudbaseDb } from './cloudbaseClient'
 import { getDevLetters, markDevLetterRead } from '../dev/devDataStore'
 import { isDevSession } from '../dev/devSession'
+import { publicAssetUrl } from '../utils/publicAssetUrl'
 
 const SPIRIT_LIFETIME_MS = 6 * 60 * 60 * 1000
 
@@ -49,7 +50,9 @@ const saveLetters = (letters, notify = true) => {
 }
 
 export const getCachedLetters = () =>
-  readStoredLetters().sort((a, b) => b.createdAt - a.createdAt)
+  readStoredLetters()
+    .map((letter) => ({ ...letter, imageUrl: publicAssetUrl(letter.imageUrl) }))
+    .sort((a, b) => b.createdAt - a.createdAt)
 
 export const createLocalLetter = ({ id, eventKey = id, type, createdAt = Date.now(), payload = {} }) => {
   const letters = readStoredLetters()
@@ -85,7 +88,7 @@ const markCachedLetterRead = (id) => {
 const normalizeCloudLetter = (letter) => ({
   ...letter,
   eventKey: letter.event_key,
-  imageUrl: letter.image_url,
+  imageUrl: publicAssetUrl(letter.image_url),
   createdAt: new Date(letter.created_at).getTime(),
   readAt: letter.read_at ? new Date(letter.read_at).getTime() : null,
 })

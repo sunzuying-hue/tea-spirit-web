@@ -24,25 +24,26 @@ import {
   markDevOnboardingSeen,
 } from '../dev/devDataStore'
 import { isDevSession } from '../dev/devSession'
+import { publicAssetUrl } from '../utils/publicAssetUrl'
 
 const videos = {
   early: {
-    idle: '/videos/zaoqi/zaoqi-guaji.mp4',
-    talk: '/videos/zaoqi/zaoqi-duihua.mp4',
-    water: '/videos/zaoqi/zaoqi-heshui.mp4',
-    sun: '/videos/zaoqi/zaoqi-yangguang.mp4',
+    idle: publicAssetUrl('/videos/zaoqi/zaoqi-guaji.mp4'),
+    talk: publicAssetUrl('/videos/zaoqi/zaoqi-duihua.mp4'),
+    water: publicAssetUrl('/videos/zaoqi/zaoqi-heshui.mp4'),
+    sun: publicAssetUrl('/videos/zaoqi/zaoqi-yangguang.mp4'),
   },
   mid: {
-    idle: '/videos/zhongqi/zhongqi-guaji.mp4',
-    talk: '/videos/zhongqi/zhongqi-duihua.mp4',
-    water: '/videos/zhongqi/zhongqi-heshui.mp4',
-    sun: '/videos/zhongqi/zhongqi-yangguang.mp4',
+    idle: publicAssetUrl('/videos/zhongqi/zhongqi-guaji.mp4'),
+    talk: publicAssetUrl('/videos/zhongqi/zhongqi-duihua.mp4'),
+    water: publicAssetUrl('/videos/zhongqi/zhongqi-heshui.mp4'),
+    sun: publicAssetUrl('/videos/zhongqi/zhongqi-yangguang.mp4'),
   },
   late: {
-    idle: '/videos/houqi/houqi-guaji.mp4',
-    talk: '/videos/houqi/houqi-duihua.mp4',
-    water: '/videos/houqi/houqi-heshui.mp4',
-    sun: '/videos/houqi/houqi-yangguang.mp4',
+    idle: publicAssetUrl('/videos/houqi/houqi-guaji.mp4'),
+    talk: publicAssetUrl('/videos/houqi/houqi-duihua.mp4'),
+    water: publicAssetUrl('/videos/houqi/houqi-heshui.mp4'),
+    sun: publicAssetUrl('/videos/houqi/houqi-yangguang.mp4'),
   },
 }
 

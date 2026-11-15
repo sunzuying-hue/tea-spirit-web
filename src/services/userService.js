@@ -2,6 +2,7 @@ import { getCurrentUser, loginWithWeChat } from './authService'
 import { assertCloudResult, cloudbaseDb } from './cloudbaseClient'
 import { getDevProfile, saveDevProfile } from '../dev/devDataStore'
 import { isDevSession } from '../dev/devSession'
+import { publicAssetUrl } from '../utils/publicAssetUrl'
 
 export const USER_STORAGE_KEY = 'teaSpiritUser'
 
@@ -28,7 +29,7 @@ const normalizeProfile = (profile = {}) => ({
   userId: profile.id || profile.userId || null,
   authProvider: profile.auth_provider || profile.authProvider || null,
   authUid: profile.auth_uid || profile.authUid || null,
-  avatarUrl: profile.avatar_url || profile.avatarUrl || EMPTY_PROFILE.avatarUrl,
+  avatarUrl: publicAssetUrl(profile.avatar_url || profile.avatarUrl || EMPTY_PROFILE.avatarUrl),
   firstVisitAt: profile.first_visit_at
     ? new Date(profile.first_visit_at).getTime()
     : profile.firstVisitAt || null,

@@ -4,6 +4,7 @@ import {
   DEV_USER,
   isDevSession,
 } from './devSession'
+import { publicAssetUrl } from '../utils/publicAssetUrl'
 
 export const DEV_PROFILE_KEY = `${DEV_STORAGE_PREFIX}profile`
 export const DEV_SPIRIT_KEY = `${DEV_STORAGE_PREFIX}spirit`
@@ -35,10 +36,10 @@ const notify = () => {
 
 export const getDevProfile = () => {
   const stored = readJson(DEV_PROFILE_KEY, null)
-  if (stored) return stored
+  if (stored) return { ...stored, avatarUrl: publicAssetUrl(stored.avatarUrl) }
   return writeJson(DEV_PROFILE_KEY, {
     ...DEV_USER,
-    avatarUrl: '/profile/tea-spirit-memory.jpg',
+    avatarUrl: publicAssetUrl('/profile/tea-spirit-memory.jpg'),
     firstVisitAt: Date.now(),
     companionCount: 0,
     authStatus: 'authenticated',
@@ -67,7 +68,9 @@ export const getDevSpirit = () => {
 }
 
 export const getDevLetters = () =>
-  readJson(DEV_LETTERS_KEY, []).sort((a, b) => b.createdAt - a.createdAt)
+  readJson(DEV_LETTERS_KEY, [])
+    .map((letter) => ({ ...letter, imageUrl: publicAssetUrl(letter.imageUrl) }))
+    .sort((a, b) => b.createdAt - a.createdAt)
 
 const saveDevLetters = (letters) => writeJson(DEV_LETTERS_KEY, letters)
 

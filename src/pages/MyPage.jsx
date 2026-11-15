@@ -9,9 +9,10 @@ import {
   signInWithPhoneVerificationCode,
   subscribeToAuthChanges,
 } from '../services/authService'
+import { publicAssetUrl } from '../utils/publicAssetUrl'
 
-const PROFILE_MEMORY_IMAGE = '/profile/tea-spirit-memory.jpg'
-const PROFILE_POEM_IMAGE = '/profile/tea-poem.png'
+const PROFILE_MEMORY_IMAGE = publicAssetUrl('/profile/tea-spirit-memory.jpg')
+const PROFILE_POEM_IMAGE = publicAssetUrl('/profile/tea-poem.png')
 const LOGIN_PANEL_CLOSE_MS = 200
 const AUTH_PROVIDER_LABELS = { phone: '手机号', dev: '本地', wechat: '微信', apple: 'Apple' }
 
@@ -227,7 +228,7 @@ function MyPage({ openPhoneLogin = false, onLoginComplete }) {
       <div className="my-page-canvas">
         <img
           className="my-layout-art"
-          src="/profile/my-page-reference.png"
+          src={publicAssetUrl('/profile/my-page-reference.png')}
           alt=""
         />
         <UserInfoCard
