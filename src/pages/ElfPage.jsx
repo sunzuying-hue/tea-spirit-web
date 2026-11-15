@@ -139,18 +139,24 @@ function ElfPage({ onGuideLetterHighlight }) {
   useEffect(() => () => window.clearTimeout(helpCloseTimer.current), [])
 
   useEffect(() => {
-    if (!cloudSpirit?.id || cloudSpirit.status === 'completed') return
-    if (initializedGuideSpirit.current === cloudSpirit.id) return
-    initializedGuideSpirit.current = cloudSpirit.id
+    // Public/mobile visitors can enter the tea-spirit page before signing in.
+    // Give that local spirit a stable per-browser identity so onboarding still
+    // appears once, while authenticated spirits continue to use their cloud id.
+    const guideSpiritId = cloudSpirit?.id || `local-${obtainedAt}`
+    if (cloudSpirit?.status === 'completed' || currentStage === 'complete') return
+    if (initializedGuideSpirit.current === guideSpiritId) return
+    initializedGuideSpirit.current = guideSpiritId
     const hasCompletedGuide = isDevSession()
-      ? hasSeenDevOnboarding(cloudSpirit.id)
-      : localStorage.getItem(`${ONBOARDING_KEY_PREFIX}${cloudSpirit.id}`) === 'true'
+      ? hasSeenDevOnboarding(guideSpiritId)
+      : localStorage.getItem(`${ONBOARDING_KEY_PREFIX}${guideSpiritId}`) === 'true'
     const isNewEarlySpirit = getSpiritStage(
-      new Date(cloudSpirit.obtained_at).getTime(),
+      cloudSpirit?.obtained_at
+        ? new Date(cloudSpirit.obtained_at).getTime()
+        : obtainedAt,
     ) === 'early'
     setGuideStep(0)
     setIsOnboarding(!hasCompletedGuide && isNewEarlySpirit)
-  }, [cloudSpirit])
+  }, [cloudSpirit, currentStage, obtainedAt])
 
   useEffect(() => {
     const restartOnboarding = () => {
@@ -289,10 +295,9 @@ function ElfPage({ onGuideLetterHighlight }) {
     setGuideTransitioning(true)
     window.setTimeout(() => {
       if (guideStep === GUIDE_MESSAGES.length - 1) {
-        if (cloudSpirit?.id) {
-          if (isDevSession()) markDevOnboardingSeen(cloudSpirit.id)
-          else localStorage.setItem(`${ONBOARDING_KEY_PREFIX}${cloudSpirit.id}`, 'true')
-        }
+        const guideSpiritId = cloudSpirit?.id || `local-${obtainedAt}`
+        if (isDevSession()) markDevOnboardingSeen(guideSpiritId)
+        else localStorage.setItem(`${ONBOARDING_KEY_PREFIX}${guideSpiritId}`, 'true')
         setIsOnboarding(false)
         setGuideTransitioning(false)
         return
