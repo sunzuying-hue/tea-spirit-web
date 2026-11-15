@@ -1,11 +1,24 @@
 import { useEffect, useState } from 'react'
 import mailBackground from '../assets/mail-bg.png'
 import {
+  evaluateCloudHolidayLetterTriggers,
   getLetters,
   getLetterById,
   markLetterRead,
 } from '../services/letterService'
 import { getUserProfile } from '../services/userService'
+
+const CONCEPT_LETTERS = [
+  { id: 'concept-qixi', type: 'qixi', title: '七夕茶约', imageUrl: '/letters/qixi.png', read: true, concept: true },
+  { id: 'concept-spring-festival', type: 'spring_festival', title: '春节来信', imageUrl: '/letters/spring-festival.png', read: true, concept: true },
+  { id: 'concept-spirit-grown', type: 'spirit_grown', title: '茶灵长大啦', imageUrl: '/letters/spirit-grown.png', read: true, concept: true },
+  { id: 'concept-mid-autumn', type: 'mid_autumn', title: '中秋来信', imageUrl: '/letters/mid-autumn.png', read: true, concept: true },
+]
+
+const withConceptLetters = (letters) => {
+  const receivedTypes = new Set(letters.map((letter) => letter.type))
+  return [...letters, ...CONCEPT_LETTERS.filter((letter) => !receivedTypes.has(letter.type))]
+}
 
 function LettersPage({ targetLetterId = null }) {
   const [letters, setLetters] = useState([])
@@ -21,7 +34,7 @@ function LettersPage({ targetLetterId = null }) {
         const profile = await getUserProfile()
         if (!active) return
         setUserId(profile.id)
-        const cloudLetters = await getLetters(profile.id)
+        const cloudLetters = await evaluateCloudHolidayLetterTriggers(profile.id)
         if (targetLetterId) {
           const targetLetter = await getLetterById(targetLetterId, profile.id)
           if (!targetLetter) {
@@ -56,6 +69,8 @@ function LettersPage({ targetLetterId = null }) {
   }, [targetLetterId])
 
   const handleLetterClick = async (id) => {
+    const selectedLetter = letters.find((letter) => letter.id === id)
+    if (selectedLetter?.concept) return
     // 先在界面上立即呈现已读，让点击有即时反馈；数据仍按原逻辑写入并刷新。
     setLetters((current) => current.map((letter) =>
       letter.id === id ? { ...letter, read: true } : letter,
@@ -71,17 +86,18 @@ function LettersPage({ targetLetterId = null }) {
         {loading && <p className="letters-status">正在读取信笺…</p>}
         {!loading && error && <p className="letters-status">{error}</p>}
         {!loading && targetStatus && <p className="letters-status">{targetStatus}</p>}
-        {!loading && !error && !letters.length && <p className="letters-status is-empty">还没有收到信笺</p>}
-        {letters.map((letter, index) => (
+        {!loading && !error && !letters.length && <p className="letters-status is-empty">四时来信，静候相逢</p>}
+        {withConceptLetters(letters).map((letter, index) => (
           <button
-            className={`letter-card${letter.read ? ' is-read' : ''}`}
+            className={`letter-card${letter.read ? ' is-read' : ''}${letter.concept ? ' is-concept' : ''}`}
             key={letter.id}
             id={`letter-${letter.id}`}
             type="button"
+            disabled={letter.concept}
             style={{ '--letter-index': Math.min(index, 8) }}
             data-targeted={letter.id === targetLetterId ? 'true' : undefined}
             onClick={() => handleLetterClick(letter.id)}
-            aria-label={`${letter.title}${letter.read ? '，已读' : '，未读'}`}
+            aria-label={`${letter.title}${letter.concept ? '，概念展示' : letter.read ? '，已读' : '，未读'}`}
           >
             <img src={letter.imageUrl} alt={letter.title} />
             <span className="letter-unread-dot" aria-hidden="true" />

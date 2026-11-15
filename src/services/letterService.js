@@ -12,11 +12,11 @@ const SPIRIT_LIFETIME_MS = 6 * 60 * 60 * 1000
 // Dates verified against the Hong Kong Observatory Gregorian/Lunar calendars.
 // Extend this table as new years are needed; trigger evaluation stays unchanged.
 export const HOLIDAY_CONFIG = {
-  2026: { midAutumn: '2026-09-25', springFestival: '2026-02-17' },
-  2027: { midAutumn: '2027-09-15', springFestival: '2027-02-06' },
-  2028: { midAutumn: '2028-10-03', springFestival: '2028-01-26' },
-  2029: { midAutumn: '2029-09-22', springFestival: '2029-02-13' },
-  2030: { midAutumn: '2030-09-12', springFestival: '2030-02-03' },
+  2026: { midAutumn: '2026-09-25', springFestival: '2026-02-17', qixi: '2026-08-19' },
+  2027: { midAutumn: '2027-09-15', springFestival: '2027-02-06', qixi: '2027-08-08' },
+  2028: { midAutumn: '2028-10-03', springFestival: '2028-01-26', qixi: '2028-08-26' },
+  2029: { midAutumn: '2029-09-22', springFestival: '2029-02-13', qixi: '2029-08-16' },
+  2030: { midAutumn: '2030-09-12', springFestival: '2030-02-03', qixi: '2030-08-05' },
 }
 
 const LETTER_TEMPLATES = {
@@ -31,6 +31,10 @@ const LETTER_TEMPLATES = {
   spring_festival: {
     title: '春节来信',
     imageUrl: '/letters/spring-festival.png',
+  },
+  qixi: {
+    title: '七夕茶约',
+    imageUrl: '/letters/qixi.png',
   },
 }
 
@@ -221,6 +225,10 @@ export const evaluateHolidayLetterTriggers = (now = Date.now()) => {
     })
   }
 
+  if (holidays?.qixi && todayKey === getPreviousDateKey(holidays.qixi)) {
+    createLocalLetter({ id: `qixi-${year}`, type: 'qixi', createdAt: now })
+  }
+
   // Future backend flow:
   // event trigger -> create letter record -> save userId/openid -> attach coupon or
   // campaign payload -> send SMS/WeChat subscription -> open the matching letter.
@@ -228,6 +236,7 @@ export const evaluateHolidayLetterTriggers = (now = Date.now()) => {
 }
 
 export const evaluateCloudHolidayLetterTriggers = async (userId, now = Date.now()) => {
+  if (isDevSession()) return getDevLetters()
   if (!userId) return getCachedLetters()
   const today = new Date(now)
   const year = today.getFullYear()
@@ -247,6 +256,14 @@ export const evaluateCloudHolidayLetterTriggers = async (userId, now = Date.now(
       userId,
       eventKey: `spring-festival-${userId}-${year}`,
       type: 'spring_festival',
+      createdAt: now,
+    })
+  }
+  if (holidays?.qixi && todayKey === getPreviousDateKey(holidays.qixi)) {
+    await createLetter({
+      userId,
+      eventKey: `qixi-${userId}-${year}`,
+      type: 'qixi',
       createdAt: now,
     })
   }
