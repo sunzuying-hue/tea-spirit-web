@@ -96,7 +96,7 @@ const normalizeCloudLetter = (letter) => ({
 export const getLetters = async (userId) => {
   if (isDevSession()) return getDevLetters()
   const identity = await getCurrentUser()
-  if (!identity?.isCloudAuthenticated || !userId) return []
+  if (!identity?.isCloudAuthenticated || !userId) return getCachedLetters()
   const result = await cloudbaseDb.from('letters').select('*')
     .eq('user_id', userId).order('created_at', { ascending: false })
   const letters = assertCloudResult(result, 'getLetters').map(normalizeCloudLetter)
@@ -109,7 +109,9 @@ export const getLetterById = async (letterId, userId) => {
     return getDevLetters().find((letter) => letter.id === letterId) || null
   }
   const identity = await getCurrentUser()
-  if (!identity?.isCloudAuthenticated || !letterId || !userId) return null
+  if (!identity?.isCloudAuthenticated || !letterId || !userId) {
+    return getCachedLetters().find((letter) => letter.id === letterId) || null
+  }
   const result = await cloudbaseDb.from('letters').select('*')
     .eq('id', letterId).eq('user_id', userId).maybeSingle()
   const letter = assertCloudResult(result, 'getLetterById')

@@ -1,7 +1,12 @@
 import { assertCloudResult, cloudbaseDb } from './cloudbaseClient'
 import { getCurrentUser } from './authService'
 import { getOrCreateUser } from './userService'
-import { getLetters } from './letterService'
+import {
+  createLocalLetter,
+  getCachedLetters,
+  getLetters,
+  getOrCreateObtainedAt,
+} from './letterService'
 import {
   getDevSpirit,
   setDevStage,
@@ -130,7 +135,26 @@ const synchronizeLifecycle = async () => {
     return spirit
   }
   const profile = await getOrCreateUser()
-  if (!profile.id || profile.authStatus !== 'authenticated') return null
+  if (!profile.id || profile.authStatus !== 'authenticated') {
+    // Public demo visitors do not have a CloudBase tea_spirit row. Their
+    // visible lifecycle is driven by the local obtainedAt value, so complete
+    // the matching local letter flow here instead of silently returning.
+    const obtainedAt = getOrCreateObtainedAt()
+    const elapsed = Math.max(0, Date.now() - obtainedAt) * TEST_SPEED
+    if (elapsed >= SPIRIT_LIFETIME_MS) {
+      createLocalLetter({
+        id: `spirit-grown-${obtainedAt}`,
+        type: 'spirit_grown',
+        createdAt: Date.now(),
+        payload: { couponAmount: 5 },
+      })
+      const letters = getCachedLetters()
+      window.dispatchEvent(new CustomEvent('tea-spirit-letters-refresh', {
+        detail: { letters },
+      }))
+    }
+    return null
+  }
 
   let spirit = await migrateLocalTeaSpiritOnce({
     userId: profile.id,
