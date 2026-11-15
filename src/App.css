@@ -1,3 +1,12 @@
+/* 动效节奏：统一使用柔和的缓出曲线，不使用回弹，整体偏慢、偏静 */
+:root {
+  --ease-ink: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-mist: cubic-bezier(0.45, 0, 0.25, 1);
+  --dur-press: 140ms;
+  --dur-soft: 420ms;
+  --dur-calm: 640ms;
+}
+
 .app-shell {
   position: relative;
   min-height: 100svh;
@@ -73,6 +82,14 @@
   min-height: 100svh;
   overflow: visible;
   background: #f7f4ec;
+  transition: opacity 680ms var(--ease-mist), filter 680ms var(--ease-mist);
+}
+
+/* 进入茶寮：画面像走进薄雾一样淡去 */
+.launch-page.is-leaving {
+  opacity: 0;
+  filter: blur(6px);
+  pointer-events: none;
 }
 
 .launch-image {
@@ -142,6 +159,14 @@
   min-height: 100svh;
   overflow: hidden;
   background: #f7f2e8;
+  /* 页面从薄雾中浮现。不使用 transform，避免影响页面内的定位元素；
+     backwards：动画结束后不保留层叠上下文，登录遮罩才能盖住底部导航 */
+  animation: page-mist-in var(--dur-calm) var(--ease-ink) backwards;
+}
+
+@keyframes page-mist-in {
+  from { opacity: 0; filter: blur(5px); }
+  to { opacity: 1; filter: blur(0); }
 }
 
 .page-background {
@@ -164,6 +189,21 @@
   overflow: hidden;
   background: transparent;
   transform: translateX(-50%);
+  /* 智能渐隐遮罩：视频自带背景在四周渐隐，与页面背景自然融合，茶灵本身不受影响。
+     遮罩尺寸 = 视频实际画面（object-fit: contain 后的区域，含 1.015 放大），居中对齐。
+     --video-aspect 由页面按阶段传入：早期/中期 3:4，后期 9:16。 */
+  --frame-h: min(calc(100svh - 340px - env(safe-area-inset-bottom)), 540px);
+  --frame-w: min(100vw, 430px);
+  --video-content-w: min(100%, calc(var(--frame-h) * var(--video-aspect, 0.75) * 1.015));
+  --video-content-h: min(100%, calc(var(--frame-w) / var(--video-aspect, 0.75) * 1.015));
+  -webkit-mask-image: var(--video-mask, none);
+  mask-image: var(--video-mask, none);
+  -webkit-mask-size: var(--video-content-w) var(--video-content-h);
+  mask-size: var(--video-content-w) var(--video-content-h);
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 
 .elf-video {
@@ -183,6 +223,28 @@
   backface-visibility: hidden;
 }
 
+/* 切换视频时的定格画面：尺寸、缩放与 .elf-video 完全一致，避免画面跳动 */
+.elf-video-freeze {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(1.015) translateZ(0);
+  transform-origin: center;
+  transition: opacity 260ms ease;
+}
+
+.elf-video-freeze.is-visible {
+  opacity: 1;
+  transition: none;
+}
+
 .elf-actions {
   position: absolute;
   z-index: 2;
@@ -198,6 +260,7 @@
 }
 
 .elf-action-button {
+  position: relative;
   min-width: 0;
   padding: 0;
   cursor: pointer;
@@ -205,12 +268,42 @@
   border-radius: 22%;
   background: transparent;
   -webkit-tap-highlight-color: transparent;
+  transition: opacity var(--dur-soft) var(--ease-mist), filter var(--dur-soft) var(--ease-mist);
 }
 
 .elf-action-button img {
   display: block;
   width: 100%;
   height: auto;
+  transform-origin: center 60%;
+  transition: transform var(--dur-soft) var(--ease-ink), filter var(--dur-soft) var(--ease-mist);
+}
+
+/* 按下时轻轻沉下去，松手后缓缓浮回 */
+.elf-action-button:not(:disabled):active img {
+  transform: scale(0.95);
+  transition-duration: var(--dur-press);
+}
+
+/* 点下后，按钮四周泛起一圈像水面一样的涟漪 */
+.elf-action-button::after {
+  content: "";
+  position: absolute;
+  inset: 6%;
+  border: 2px solid rgba(146, 180, 112, 0.8);
+  border-radius: 28%;
+  box-shadow: 0 0 10px rgba(176, 204, 128, 0.35);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.elf-action-button.is-playing::after {
+  animation: elf-action-ripple 1.3s var(--ease-ink) both;
+}
+
+@keyframes elf-action-ripple {
+  0% { opacity: 0.85; transform: scale(0.92); }
+  100% { opacity: 0; transform: scale(1.28); border-width: 0.5px; }
 }
 
 .elf-action-button:focus-visible {
@@ -222,12 +315,39 @@
   cursor: default;
 }
 
+/* 互动进行中：当前动作微微浮起并发光，其余两个淡下去 */
+.elf-actions.is-busy .elf-action-button:not(.is-playing) {
+  opacity: 0.48;
+  filter: saturate(0.55) blur(0.3px);
+}
+
+.elf-action-button.is-playing img {
+  transform: translateY(-4px) scale(1.02);
+  filter: drop-shadow(0 8px 14px rgba(150, 178, 104, 0.4));
+  animation: elf-action-breathe 3.2s var(--ease-mist) 400ms infinite;
+}
+
+/* 互动进行中，光晕像呼吸一样缓缓明暗 */
+@keyframes elf-action-breathe {
+  0%, 100% { filter: drop-shadow(0 8px 14px rgba(150, 178, 104, 0.34)); }
+  50% { filter: drop-shadow(0 8px 20px rgba(184, 208, 120, 0.62)); }
+}
+
+/* 茶灵回到自然后，按钮像褪了色的旧画，慢慢退为背景 */
+.elf-actions.is-resting .elf-action-button {
+  opacity: 0.36;
+  filter: grayscale(0.6);
+  transition-duration: 1.4s;
+}
+
 .elf-help-bubble {
   position: absolute;
   z-index: 5;
   top: clamp(82px, 12svh, 112px);
   right: max(18px, calc((100% - 430px) / 2 + 18px));
-  width: min(65vw, 278px);
+  /* 宽度随最长一行自适应，避免小屏上"太阳。""信。"等单独掉到下一行 */
+  width: max-content;
+  max-width: calc(100vw - 32px);
   margin: 0;
   border: 1px solid rgba(91, 127, 91, 0.22);
   border-radius: 20px 20px 18px 20px;
@@ -304,11 +424,35 @@
   border: 0;
   background: transparent;
   opacity: 1;
-  transition: opacity 300ms ease;
+  transition: opacity 300ms var(--ease-mist), filter 300ms var(--ease-mist);
+  /* 手写字像毛笔落墨一样，自左向右缓缓晕开 */
+  -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 42%, transparent 58%, transparent 100%);
+  mask-image: linear-gradient(90deg, #000 0%, #000 42%, transparent 58%, transparent 100%);
+  -webkit-mask-size: 260% 100%;
+  mask-size: 260% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  /* backwards：结束后回到默认（完整显示），切换时的淡出模糊才能生效 */
+  animation: guide-ink-write 1.25s var(--ease-mist) backwards;
 }
 
+@keyframes guide-ink-write {
+  from {
+    -webkit-mask-position: 100% 0;
+    mask-position: 100% 0;
+    filter: blur(1.5px);
+  }
+  to {
+    -webkit-mask-position: 0% 0;
+    mask-position: 0% 0;
+    filter: blur(0);
+  }
+}
+
+/* 换下一句时，上一句像墨迹被水化开一样淡去 */
 .elf-guide-text-layer.is-switching .elf-guide-image {
   opacity: 0;
+  filter: blur(3px);
 }
 
 .elf-help-button:focus-visible,
@@ -349,15 +493,36 @@
   height: 32px;
   padding: 0;
   cursor: pointer;
-  border: 1px solid rgba(80, 112, 82, 0.26);
+  border: 1px solid rgba(80, 112, 82, 0.4);
   border-radius: 50%;
-  color: rgba(47, 79, 57, 0.72);
-  background: rgba(234, 242, 222, 0.48);
-  box-shadow: 0 3px 10px rgba(68, 86, 65, 0.08);
+  color: rgba(42, 74, 52, 0.88);
+  background: rgba(240, 246, 230, 0.78);
+  box-shadow: 0 3px 12px rgba(68, 86, 65, 0.14);
   font-family: "STKaiti", "KaiTi", serif;
   font-size: 18px;
+  -webkit-tap-highlight-color: transparent;
   -webkit-backdrop-filter: blur(5px);
   backdrop-filter: blur(5px);
+  transition:
+    transform var(--dur-soft) var(--ease-ink),
+    background var(--dur-soft) var(--ease-mist),
+    box-shadow var(--dur-soft) var(--ease-mist);
+  animation: elf-help-button-enter var(--dur-calm) var(--ease-ink) backwards;
+}
+
+.elf-help-button:active {
+  transform: scale(0.92);
+  transition-duration: var(--dur-press);
+}
+
+.elf-help-button[aria-expanded="true"] {
+  background: rgba(214, 230, 198, 0.92);
+  box-shadow: 0 2px 8px rgba(68, 86, 65, 0.12);
+}
+
+@keyframes elf-help-button-enter {
+  from { opacity: 0; filter: blur(3px); }
+  to { opacity: 1; filter: blur(0); }
 }
 
 .elf-help-bubble {
@@ -367,7 +532,23 @@
   font-family: "STKaiti", "KaiTi", "FangSong", serif;
   font-size: clamp(13px, 3.4vw, 16px);
   line-height: 1.55;
-  animation: elf-bubble-enter 300ms ease both;
+  transform-origin: calc(100% - 16px) -12px;
+  animation: elf-bubble-enter 520ms var(--ease-ink) both;
+}
+
+.elf-help-bubble.is-closing {
+  animation: elf-bubble-exit 220ms var(--ease-mist) both;
+}
+
+/* 气泡从"？"处像一滴水晕开；原代码引用了 elf-bubble-enter 但没有定义 */
+@keyframes elf-bubble-enter {
+  from { opacity: 0; transform: scale(0.88); filter: blur(4px); }
+  to { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
+@keyframes elf-bubble-exit {
+  from { opacity: 1; transform: scale(1); filter: blur(0); }
+  to { opacity: 0; transform: scale(0.94); filter: blur(3px); }
 }
 
 .elf-help-bubble p { margin: 0; }
@@ -442,7 +623,8 @@
 }
 
 .my-user-copy strong {
-  max-width: 100%;
+  /* 给右侧红色印章留出空间，长昵称以省略号收尾 */
+  max-width: calc(100% - 24px);
   overflow: hidden;
   font-size: clamp(15px, 4.4vw, 20px);
   font-weight: 600;
@@ -508,14 +690,93 @@
 
 .elf-lifecycle-status.is-error {
   color: #8b5148;
+  animation: soft-rise-in 360ms ease both;
+}
+
+.elf-lifecycle-status.is-complete {
+  bottom: calc(36% + env(safe-area-inset-bottom));
+  color: rgba(63, 90, 70, 0.86);
+  font-family: "STKaiti", "KaiTi", "FangSong", serif;
+  font-size: clamp(17px, 4.8vw, 20px);
+  letter-spacing: 0.18em;
+  /* 一行字像毛笔写下，墨色自左向右晕开 */
+  -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 42%, transparent 58%, transparent 100%);
+  mask-image: linear-gradient(90deg, #000 0%, #000 42%, transparent 58%, transparent 100%);
+  -webkit-mask-size: 260% 100%;
+  mask-size: 260% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  animation: elf-complete-ink 2.4s var(--ease-mist) 300ms backwards;
+}
+
+@keyframes elf-complete-ink {
+  from {
+    -webkit-mask-position: 100% 0;
+    mask-position: 100% 0;
+    filter: blur(2px);
+  }
+  to {
+    -webkit-mask-position: 0% 0;
+    mask-position: 0% 0;
+    filter: blur(0);
+  }
+}
+
+@keyframes soft-rise-in {
+  from { opacity: 0; transform: translate(-50%, 6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.phone-login-backdrop {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: max(18svh, calc(env(safe-area-inset-top) + 72px)) 16px 24px;
+  background: rgba(240, 236, 224, 0.55);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  animation: backdrop-fade-in var(--dur-soft) var(--ease-mist) both;
+}
+
+.phone-login-backdrop.is-closing {
+  animation: backdrop-fade-out 240ms var(--ease-mist) both;
+}
+
+.phone-login-backdrop .phone-login-panel {
+  animation: login-panel-in 560ms var(--ease-ink) 40ms both;
+}
+
+.phone-login-backdrop.is-closing .phone-login-panel {
+  animation: login-panel-out 220ms var(--ease-mist) both;
+}
+
+@keyframes backdrop-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes backdrop-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* 登录卡片像一张纸笺从雾里缓缓浮上来 */
+@keyframes login-panel-in {
+  from { opacity: 0; transform: translateY(18px); filter: blur(4px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes login-panel-out {
+  from { opacity: 1; transform: translateY(0); filter: blur(0); }
+  to { opacity: 0; transform: translateY(10px); filter: blur(3px); }
 }
 
 .phone-login-panel {
-  position: absolute;
-  z-index: 20;
-  top: 24%;
-  left: 7%;
-  width: 86%;
+  position: relative;
+  width: min(100%, 360px);
   display: grid;
   gap: 10px;
   padding: 18px;
@@ -537,8 +798,26 @@
   font: inherit;
 }
 
-.phone-login-panel input { padding: 8px 10px; background: rgba(255, 255, 255, 0.7); }
-.phone-login-panel button { padding: 7px 12px; color: #3d6047; background: #eef1df; }
+.phone-login-panel input {
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.7);
+  transition: border-color 200ms ease, box-shadow 200ms ease, background 200ms ease;
+}
+.phone-login-panel input:focus {
+  outline: none;
+  border-color: rgba(74, 107, 78, 0.7);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 0 3px rgba(170, 196, 150, 0.28);
+}
+.phone-login-panel button {
+  padding: 7px 12px;
+  color: #3d6047;
+  background: #eef1df;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 200ms ease, transform 120ms ease, background 200ms ease;
+}
+.phone-login-panel button:not(:disabled) { cursor: pointer; }
+.phone-login-panel button:not(:disabled):active { transform: scale(0.97); background: #e2e9cf; }
 .phone-login-panel button:disabled { opacity: 0.55; }
 .phone-code-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 .phone-login-panel .phone-login-close {
@@ -550,14 +829,26 @@
   background: transparent;
   font-size: 22px;
 }
-.phone-login-panel p { margin: 0; color: #9a4e43; font-size: 12px; text-align: center; }
+.phone-login-panel p {
+  margin: 0;
+  color: #9a4e43;
+  font-size: 12px;
+  text-align: center;
+  animation: soft-fade-in 240ms ease both;
+}
+
+@keyframes soft-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 
 .my-companion {
   position: absolute;
   z-index: 1;
   top: 35%;
-  left: 42%;
-  width: 48%;
+  /* 右移，避开纸条左侧的花朵装饰 */
+  left: 54%;
+  width: 40%;
   height: 9%;
   display: flex;
   align-items: center;
@@ -568,9 +859,33 @@
 }
 
 .my-companion strong {
+  display: inline-block;
   margin-inline: 0.12em;
   font-size: 1.25em;
   color: #56745a;
+  animation: companion-count-in 900ms var(--ease-ink) 360ms backwards;
+}
+
+/* 数字像墨点落在纸上，从微微模糊到清晰 */
+@keyframes companion-count-in {
+  from { opacity: 0; transform: translateY(5px); filter: blur(3px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+/* "我的"页内容依次浮现。只改透明度和模糊、不位移，避免与背景画框错位 */
+.my-user-info,
+.my-companion,
+.my-memory {
+  animation: my-item-in 760ms var(--ease-ink) backwards;
+}
+
+.my-user-info { animation-delay: 120ms; }
+.my-companion { animation-delay: 240ms; }
+.my-memory { animation-delay: 360ms; }
+
+@keyframes my-item-in {
+  from { opacity: 0; filter: blur(4px); }
+  to { opacity: 1; filter: blur(0); }
 }
 
 .my-memory {
@@ -632,7 +947,23 @@
   gap: clamp(12px, 2.4svh, 20px);
 }
 
+.letters-status {
+  margin: 0;
+  color: rgba(70, 92, 74, 0.78);
+  font-family: "STKaiti", "KaiTi", "FangSong", serif;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  animation: soft-fade-in 400ms ease both;
+}
+
+.letters-status.is-empty {
+  padding-top: 22svh;
+  text-align: center;
+  letter-spacing: 0.2em;
+}
+
 .letter-card {
+  position: relative;
   width: 100%;
   padding: 0;
   cursor: pointer;
@@ -641,6 +972,25 @@
   background: transparent;
   box-shadow: 0 7px 18px rgba(82, 72, 52, 0.1);
   -webkit-tap-highlight-color: transparent;
+  transition:
+    transform var(--dur-soft) var(--ease-ink),
+    box-shadow var(--dur-soft) var(--ease-mist),
+    opacity 700ms var(--ease-mist),
+    filter 700ms var(--ease-mist);
+  animation: letter-card-enter 820ms var(--ease-ink) backwards;
+  animation-delay: calc(120ms + var(--letter-index, 0) * 110ms);
+}
+
+/* 信笺一封封从雾里浮上来 */
+@keyframes letter-card-enter {
+  from { opacity: 0; transform: translateY(20px); filter: blur(4px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+.letter-card:active {
+  transform: scale(0.985);
+  box-shadow: 0 3px 8px rgba(82, 72, 52, 0.12);
+  transition-duration: var(--dur-press);
 }
 
 .letter-card img {
@@ -650,13 +1000,61 @@
   border-radius: inherit;
 }
 
+/* 未读：右上角一枚朱砂小点，读过后淡出 */
+.letter-unread-dot {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #c25b4c;
+  box-shadow: 0 0 0 2px rgba(253, 249, 240, 0.9), 0 1px 4px rgba(120, 50, 40, 0.3);
+  pointer-events: none;
+  transition: opacity 600ms var(--ease-mist), transform 600ms var(--ease-ink), filter 600ms var(--ease-mist);
+}
+
+/* 未读朱砂点四周，偶尔泛起一圈很淡的晕 */
+.letter-unread-dot::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  background: rgba(194, 91, 76, 0.35);
+  animation: letter-dot-halo 3.6s var(--ease-mist) 1s infinite;
+}
+
+@keyframes letter-dot-halo {
+  0% { opacity: 0.7; transform: scale(1); }
+  45%, 100% { opacity: 0; transform: scale(2.6); }
+}
+
+.letter-card.is-read .letter-unread-dot {
+  opacity: 0;
+  transform: scale(1.6);
+  filter: blur(3px);
+}
+
+.letter-card.is-read .letter-unread-dot::after {
+  animation: none;
+}
+
 .letter-card.is-read {
-  opacity: 0.82;
+  opacity: 0.84;
+  filter: saturate(0.82);
 }
 
 .letter-card[data-targeted="true"] {
   outline: 2px solid rgba(86, 116, 90, 0.65);
   outline-offset: 4px;
+  animation:
+    letter-card-enter 820ms var(--ease-ink) 120ms backwards,
+    letter-target-glow 2.2s var(--ease-mist) 900ms 2;
+}
+
+@keyframes letter-target-glow {
+  0%, 100% { box-shadow: 0 7px 18px rgba(82, 72, 52, 0.1); }
+  50% { box-shadow: 0 0 0 6px rgba(186, 208, 160, 0.4), 0 7px 18px rgba(82, 72, 52, 0.1); }
 }
 
 .letter-card:focus-visible {
@@ -692,37 +1090,55 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.tab-button::after {
+/* 选中标记：一抹淡墨，在三个入口之间缓缓滑动 */
+.tab-ink-indicator {
+  position: absolute;
+  left: 18px;
+  bottom: calc(max(8px, env(safe-area-inset-bottom)) + 1px);
+  width: calc((100% - 36px) / 3);
+  height: 10px;
+  pointer-events: none;
+  transform: translateX(calc(var(--tab-index, 0) * 100%));
+  transition: transform 620ms var(--ease-ink);
+}
+
+.tab-ink-indicator::before {
   content: "";
   position: absolute;
-  bottom: 2px;
   left: 50%;
-  width: 50px;
-  height: 5px;
+  top: 0;
+  width: 62px;
+  height: 9px;
   border-radius: 50%;
-  background: rgba(103, 132, 104, 0);
-  filter: blur(3px);
+  background: radial-gradient(ellipse at center, rgba(96, 126, 98, 0.34) 0%, rgba(96, 126, 98, 0.12) 55%, transparent 75%);
+  filter: blur(1.5px);
   transform: translateX(-50%);
-  transition: background 180ms ease;
 }
 
 .tab-button img {
   display: block;
   width: min(82px, 24vw);
   height: auto;
-  opacity: 0.62;
+  opacity: 0.6;
   transform: scale(0.92);
   transform-origin: center bottom;
-  transition: opacity 180ms ease, transform 180ms ease;
+  transition: opacity 520ms var(--ease-mist), transform 520ms var(--ease-ink), filter 520ms var(--ease-mist);
+  filter: saturate(0.8);
 }
 
 .tab-button.is-active img {
   opacity: 1;
-  transform: scale(1.05) translateY(-2px);
+  transform: scale(1.04) translateY(-2px);
+  filter: saturate(1);
 }
 
-.tab-button.is-active::after {
-  background: rgba(103, 132, 104, 0.24);
+.tab-button:active img {
+  transform: scale(0.9);
+  transition-duration: var(--dur-press);
+}
+
+.tab-button.is-active:active img {
+  transform: scale(0.98) translateY(-1px);
 }
 
 .tab-button.is-guide-highlight img {
@@ -805,19 +1221,48 @@
   font-size: 10px;
 }
 
+/* 宽屏（电脑、平板）以"手机画框"展示：
+   画框高度固定并在窗口中垂直居中，四角统一圆角，底部导航贴住画框底边，
+   不再出现导航与页面脱节、画框下方多出一条、页面可上下滚动 48px 的问题。 */
 @media (min-width: 431px) {
-  body { padding-block: 24px; }
-  #root { border-radius: 34px; }
-  .app-shell,
-  .main-page { min-height: min(852px, calc(100svh - 48px)); }
+  body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100svh;
+    padding-block: 24px;
+  }
+  #root {
+    min-height: 0;
+    margin: auto;
+    border-radius: 34px;
+    overflow: hidden;
+  }
+  .dev-entry-choice { min-height: calc(100svh - 48px); }
+  .app-shell {
+    height: min(852px, calc(100svh - 48px));
+    min-height: 0;
+    overflow: hidden;
+  }
+  .main-page {
+    height: 100%;
+    min-height: 0;
+  }
   .elf-actions { bottom: calc(118px + env(safe-area-inset-bottom)); }
-  .bottom-tabs { bottom: 24px; border-radius: 0 0 34px 34px; }
+  .bottom-tabs {
+    position: absolute;
+    bottom: 0;
+  }
+  /* 开发按钮放回画框左上角内侧 */
+  .dev-panel {
+    top: calc((100svh - min(852px, calc(100svh - 48px))) / 2 + 12px);
+    left: calc(50% - 215px + 14px);
+  }
 }
 
 @media (max-width: 360px) {
   .elf-help-bubble {
     right: 12px;
-    width: min(68vw, 238px);
+    max-width: calc(100vw - 24px);
   }
 }
 
@@ -831,12 +1276,47 @@
 @media (prefers-reduced-motion: reduce) {
   .launch-scroll-chevron,
   .elf-action-button.is-guide-highlight,
-  .tab-button.is-guide-highlight img {
+  .elf-action-button.is-playing img,
+  .elf-action-button.is-playing::after,
+  .tab-button.is-guide-highlight img,
+  .letter-card[data-targeted="true"],
+  .letter-unread-dot::after,
+  .elf-guide-image,
+  .elf-lifecycle-status.is-complete {
     animation: none;
   }
 
+  .elf-guide-image,
+  .elf-lifecycle-status.is-complete {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .main-page,
   .elf-guide-text-layer,
-  .elf-help-bubble {
+  .elf-help-bubble,
+  .elf-help-button,
+  .elf-lifecycle-status,
+  .letter-card,
+  .letters-status,
+  .my-user-info,
+  .my-companion,
+  .my-memory,
+  .my-companion strong,
+  .phone-login-backdrop,
+  .phone-login-backdrop .phone-login-panel {
     animation-duration: 1ms;
+    animation-delay: 0ms;
+  }
+
+  .launch-page,
+  .letter-card,
+  .letter-unread-dot,
+  .elf-action-button,
+  .elf-action-button img,
+  .elf-guide-image,
+  .tab-button img,
+  .tab-ink-indicator {
+    transition-duration: 1ms;
   }
 }

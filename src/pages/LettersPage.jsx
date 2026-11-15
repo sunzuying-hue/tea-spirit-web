@@ -56,6 +56,10 @@ function LettersPage({ targetLetterId = null }) {
   }, [targetLetterId])
 
   const handleLetterClick = async (id) => {
+    // 先在界面上立即呈现已读，让点击有即时反馈；数据仍按原逻辑写入并刷新。
+    setLetters((current) => current.map((letter) =>
+      letter.id === id ? { ...letter, read: true } : letter,
+    ))
     await markLetterRead(id, userId)
     setLetters(await getLetters(userId))
   }
@@ -67,18 +71,20 @@ function LettersPage({ targetLetterId = null }) {
         {loading && <p className="letters-status">正在读取信笺…</p>}
         {!loading && error && <p className="letters-status">{error}</p>}
         {!loading && targetStatus && <p className="letters-status">{targetStatus}</p>}
-        {!loading && !letters.length && <p className="letters-status">还没有收到信笺</p>}
-        {letters.map((letter) => (
+        {!loading && !error && !letters.length && <p className="letters-status is-empty">还没有收到信笺</p>}
+        {letters.map((letter, index) => (
           <button
             className={`letter-card${letter.read ? ' is-read' : ''}`}
             key={letter.id}
             id={`letter-${letter.id}`}
             type="button"
+            style={{ '--letter-index': Math.min(index, 8) }}
             data-targeted={letter.id === targetLetterId ? 'true' : undefined}
             onClick={() => handleLetterClick(letter.id)}
             aria-label={`${letter.title}${letter.read ? '，已读' : '，未读'}`}
           >
             <img src={letter.imageUrl} alt={letter.title} />
+            <span className="letter-unread-dot" aria-hidden="true" />
           </button>
         ))}
       </section>

@@ -9,8 +9,15 @@ const tabs = [
 ]
 
 function BottomTabs({ activeTab, onChange, highlightLetters = false }) {
+  const activeIndex = Math.max(0, tabs.findIndex((tab) => tab.id === activeTab))
+
   return (
     <nav className="bottom-tabs" aria-label="主导航">
+      <span
+        className="tab-ink-indicator"
+        style={{ '--tab-index': activeIndex }}
+        aria-hidden="true"
+      />
       {tabs.map((tab) => (
         <button
           className={`tab-button ${activeTab === tab.id ? 'is-active' : ''}${highlightLetters && tab.id === 'letters' ? ' is-guide-highlight' : ''}`}

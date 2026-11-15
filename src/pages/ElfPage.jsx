@@ -11,6 +11,10 @@ import onboarding05 from '../assets/onboarding/onboarding-05.png'
 import onboarding06 from '../assets/onboarding/onboarding-06.png'
 import onboarding07 from '../assets/onboarding/onboarding-07.png'
 import onboarding08 from '../assets/onboarding/onboarding-08.png'
+// ?inline：遮罩直接内嵌（每张约 12–15KB），避免遮罩图还没下载完时视频闪烁
+import earlyVideoMask from '../assets/video-masks/early.png?inline'
+import middleVideoMask from '../assets/video-masks/middle.png?inline'
+import lateVideoMask from '../assets/video-masks/late.png?inline'
 import { getSpiritStage } from '../services/lifecycleService'
 import { getOrCreateObtainedAt } from '../services/letterService'
 import { syncTeaSpiritLifecycle } from '../services/teaSpiritService'
@@ -42,6 +46,15 @@ const videos = {
   },
 }
 
+// 每个阶段一张渐隐遮罩：视频四周的自带背景渐隐，露出页面背景，茶灵本身不受影响。
+// 由 scripts/generate-video-masks.py 根据视频内容生成，替换视频后需重新生成。
+// aspect 为该阶段视频的宽高比：早期、中期 720×960，后期 720×1280。
+const videoMasks = {
+  early: { image: earlyVideoMask, aspect: 720 / 960 },
+  mid: { image: middleVideoMask, aspect: 720 / 960 },
+  late: { image: lateVideoMask, aspect: 720 / 1280 },
+}
+
 const ONBOARDING_KEY_PREFIX = 'teaSpiritOnboardingComplete:'
 const GUIDE_MESSAGES = [
   '你来啦。',
@@ -66,7 +79,13 @@ const GUIDE_IMAGES = [
 
 function ElfPage({ onGuideLetterHighlight }) {
   const videoRef = useRef(null)
+  const freezeFrameRef = useRef(null)
+  const currentStageRef = useRef(null)
+  const helpCloseTimer = useRef(null)
   const initializedGuideSpirit = useRef(null)
+  const [showFreezeFrame, setShowFreezeFrame] = useState(false)
+  const [maskStage, setMaskStage] = useState(null)
+  const [helpClosing, setHelpClosing] = useState(false)
   const [obtainedAt] = useState(() => getOrCreateObtainedAt())
   const [currentVideo, setCurrentVideo] = useState('idle')
   const [isInteracting, setIsInteracting] = useState(false)
@@ -82,6 +101,41 @@ function ElfPage({ onGuideLetterHighlight }) {
   )
   const currentVideoSrc =
     currentStage === 'complete' ? null : videos[currentStage][currentVideo]
+  const activeVideoMask = videoMasks[maskStage] || videoMasks[currentStage] || videoMasks.early
+
+  useEffect(() => {
+    currentStageRef.current = currentStage
+  }, [currentStage])
+
+  // 切换视频前把当前画面定格到 canvas 上，新视频首帧出来后再淡出，
+  // 避免手机端切换动作或阶段时出现空白闪烁。只读取已加载的画面，不额外请求资源。
+  const freezeCurrentFrame = () => {
+    const video = videoRef.current
+    const canvas = freezeFrameRef.current
+    if (!video || !canvas || video.readyState < 2 || !video.videoWidth) return
+    try {
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height)
+      setShowFreezeFrame(true)
+    } catch {
+      setShowFreezeFrame(false)
+    }
+  }
+
+  const releaseFreezeFrame = () => setShowFreezeFrame(false)
+
+  const closeHelp = () => {
+    if (!showHelp || helpClosing) return
+    setHelpClosing(true)
+    window.clearTimeout(helpCloseTimer.current)
+    helpCloseTimer.current = window.setTimeout(() => {
+      setShowHelp(false)
+      setHelpClosing(false)
+    }, 200)
+  }
+
+  useEffect(() => () => window.clearTimeout(helpCloseTimer.current), [])
 
   useEffect(() => {
     if (!cloudSpirit?.id || cloudSpirit.status === 'completed') return
@@ -126,9 +180,13 @@ function ElfPage({ onGuideLetterHighlight }) {
       ) {
         void syncTeaSpiritLifecycle()
       }
-      setCurrentStage(cloudSpirit?.status === 'completed'
+      const nextStage = cloudSpirit?.status === 'completed'
         ? 'complete'
-        : stage === 'middle' ? 'mid' : stage === 'completed' ? 'complete' : stage)
+        : stage === 'middle' ? 'mid' : stage === 'completed' ? 'complete' : stage
+      if (nextStage !== currentStageRef.current && nextStage !== 'complete') {
+        freezeCurrentFrame()
+      }
+      setCurrentStage(nextStage)
     }
     const stageClock = window.setInterval(updateStage, 60 * 1000)
 
@@ -199,6 +257,8 @@ function ElfPage({ onGuideLetterHighlight }) {
   const startInteraction = (videoName) => {
     if (isInteracting) return
     if (isOnboarding && (guideStep === 4 || guideStep === 5)) setGuideReply('谢谢你。')
+    closeHelp()
+    freezeCurrentFrame()
     setIsInteracting(true)
     setCurrentVideo(videoName)
   }
@@ -217,6 +277,7 @@ function ElfPage({ onGuideLetterHighlight }) {
 
   const handleVideoEnded = () => {
     if (currentVideo === 'idle') return
+    freezeCurrentFrame()
     setCurrentVideo('idle')
     setIsInteracting(false)
     setGuideReply('')
@@ -243,14 +304,18 @@ function ElfPage({ onGuideLetterHighlight }) {
   }
 
   const handleVideoLoadedData = (event) => {
-    console.info('Tea spirit video loaded:', event.currentTarget.currentSrc)
+    // 新阶段的首帧出来后再换遮罩，避免定格的旧画面被套上新阶段的遮罩
+    setMaskStage(currentStage)
+    releaseFreezeFrame()
+    if (import.meta.env.DEV) console.info('Tea spirit video loaded:', event.currentTarget.currentSrc)
   }
 
   const handleVideoPlay = (event) => {
-    console.info('Tea spirit video playing:', event.currentTarget.currentSrc)
+    if (import.meta.env.DEV) console.info('Tea spirit video playing:', event.currentTarget.currentSrc)
   }
 
   const handleVideoError = (event) => {
+    releaseFreezeFrame()
     const mediaError = event.currentTarget.error
     console.error('Tea spirit video failed:', {
       src: event.currentTarget.currentSrc || currentVideoSrc,
@@ -260,21 +325,33 @@ function ElfPage({ onGuideLetterHighlight }) {
   }
 
   const actions = [
-    { id: 'talk', label: '对话', image: talkUi, onClick: handleTalk },
-    { id: 'water', label: '喝水', image: waterUi, onClick: handleWater },
-    { id: 'sun', label: '阳光', image: sunUi, onClick: handleSun },
+    { id: 'talk', label: '对话', image: talkUi },
+    { id: 'water', label: '喝水', image: waterUi },
+    { id: 'sun', label: '阳光', image: sunUi },
   ]
+  const actionHandlers = { talk: handleTalk, water: handleWater, sun: handleSun }
 
   const guideContent = guideReply || GUIDE_MESSAGES[guideStep]
 
   return (
     <main
       className="main-page elf-page"
-      onClick={isOnboarding ? handleGuideAdvance : undefined}
+      onClick={isOnboarding ? handleGuideAdvance : showHelp ? closeHelp : undefined}
     >
       <img className="page-background" src={teaBackground} alt="" />
       {currentStage !== 'complete' && (
-        <div className="elf-video-frame">
+        <div
+          className="elf-video-frame"
+          style={{
+            '--video-mask': `url("${activeVideoMask.image}")`,
+            '--video-aspect': activeVideoMask.aspect,
+          }}
+        >
+        <canvas
+          ref={freezeFrameRef}
+          className={`elf-video-freeze${showFreezeFrame ? ' is-visible' : ''}`}
+          aria-hidden="true"
+        />
         <video
           ref={videoRef}
           className="elf-video"
@@ -293,7 +370,7 @@ function ElfPage({ onGuideLetterHighlight }) {
         </div>
       )}
       {currentStage === 'complete' && (
-        <p className="elf-lifecycle-status">茶灵已经回到自然中。</p>
+        <p className="elf-lifecycle-status is-complete">茶灵已经回到自然中。</p>
       )}
       {lifecycleError && (
         <p className="elf-lifecycle-status is-error">{lifecycleError}</p>
@@ -307,6 +384,7 @@ function ElfPage({ onGuideLetterHighlight }) {
           aria-label={guideContent}
         >
           <img
+            key={guideStep}
             className="elf-guide-image"
             src={GUIDE_IMAGES[guideStep]}
             alt={guideContent}
@@ -318,16 +396,28 @@ function ElfPage({ onGuideLetterHighlight }) {
           className="elf-help-button"
           type="button"
           aria-label="查看玩法"
-          onClick={() => setShowHelp((value) => !value)}
+          aria-expanded={showHelp && !helpClosing}
+          onClick={(event) => {
+            event.stopPropagation()
+            if (showHelp) closeHelp()
+            else setShowHelp(true)
+          }}
         >?</button>
       )}
       {showHelp && !isOnboarding && currentStage !== 'complete' && (
-        <aside className="elf-help-bubble" aria-label="玩法说明">
+        <aside
+          className={`elf-help-bubble${helpClosing ? ' is-closing' : ''}`}
+          aria-label="玩法说明"
+          onClick={(event) => event.stopPropagation()}
+        >
           <p>陪我说说话、喝点水、晒晒太阳。<br />我会在六个小时里慢慢长大，<br />离开网页以后也不会停止。<br />长大后，我会给你留下一封信。</p>
-          <button type="button" onClick={() => setShowHelp(false)} aria-label="关闭玩法说明">×</button>
+          <button type="button" onClick={closeHelp} aria-label="关闭玩法说明">×</button>
         </aside>
       )}
-      <section className="elf-actions" aria-label="茶灵互动">
+      <section
+        className={`elf-actions${isInteracting ? ' is-busy' : ''}${currentStage === 'complete' ? ' is-resting' : ''}`}
+        aria-label="茶灵互动"
+      >
         {actions.map((action) => (
           <button
             className={`elf-action-button${
@@ -335,13 +425,13 @@ function ElfPage({ onGuideLetterHighlight }) {
                 (guideStep === 4 && action.id === 'talk') ||
                 (guideStep === 5 && (action.id === 'water' || action.id === 'sun'))
               ) ? ' is-guide-highlight' : ''
-            }`}
+            }${currentVideo === action.id ? ' is-playing' : ''}`}
             key={action.id}
             type="button"
             aria-label={action.label}
             onClick={(event) => {
               event.stopPropagation()
-              action.onClick()
+              actionHandlers[action.id]()
             }}
             disabled={isInteracting || currentStage === 'complete'}
           >

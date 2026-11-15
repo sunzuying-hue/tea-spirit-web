@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   getCachedUserProfile,
   getUserProfile,
@@ -12,6 +12,8 @@ import {
 
 const PROFILE_MEMORY_IMAGE = '/profile/tea-spirit-memory.jpg'
 const PROFILE_POEM_IMAGE = '/profile/tea-poem.png'
+const LOGIN_PANEL_CLOSE_MS = 200
+const AUTH_PROVIDER_LABELS = { phone: '手机号', dev: '本地', wechat: '微信', apple: 'Apple' }
 
 const formatVisitDate = (timestamp) => {
   if (!timestamp) return '——'
@@ -37,7 +39,9 @@ function UserInfoCard({ userProfile, onLogin, loading }) {
         <strong>{userProfile.nickname}</strong>
         <button type="button" onClick={onLogin} disabled={isLoggedIn || loading}>
           {isLoggedIn
-            ? hasProfileError ? '已登录，资料加载失败' : `已登录（${userProfile.authProvider || '本地'}）`
+            ? hasProfileError
+              ? '已登录，资料加载失败'
+              : `已登录（${AUTH_PROVIDER_LABELS[userProfile.authProvider] || userProfile.authProvider || '本地'}）`
             : '手机号登录'}
         </button>
         <p>初次到访：<span>{formatVisitDate(userProfile.firstVisitAt)}</span></p>
@@ -46,7 +50,7 @@ function UserInfoCard({ userProfile, onLogin, loading }) {
   )
 }
 
-function PhoneLoginPanel({ onSuccess, onCancel }) {
+function PhoneLoginPanel({ onSuccess, onCancel, closing = false }) {
   const [phone, setPhone] = useState('')
   const [code, setCode] = useState('')
   const [countdown, setCountdown] = useState(0)
@@ -92,6 +96,12 @@ function PhoneLoginPanel({ onSuccess, onCancel }) {
   }
 
   return (
+    <div
+      className={`phone-login-backdrop${closing ? ' is-closing' : ''}`}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onCancel()
+      }}
+    >
     <form className="phone-login-panel" onSubmit={handleSubmit} aria-label="手机号登录">
       <button className="phone-login-close" type="button" onClick={onCancel} aria-label="关闭登录">×</button>
       <strong>手机号登录</strong>
@@ -121,13 +131,14 @@ function PhoneLoginPanel({ onSuccess, onCancel }) {
       </button>
       {error && <p role="alert">{error}</p>}
     </form>
+    </div>
   )
 }
 
 function CompanionCard({ count }) {
   return (
     <section className="my-companion" aria-label="茶灵陪伴次数">
-      茶灵陪伴：<strong>{count}</strong>次
+      茶灵陪伴：<strong key={count}>{count}</strong>次
     </section>
   )
 }
@@ -150,6 +161,20 @@ function MyPage({ openPhoneLogin = false, onLoginComplete }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showPhoneLogin, setShowPhoneLogin] = useState(openPhoneLogin)
+  const [loginClosing, setLoginClosing] = useState(false)
+  const loginCloseTimer = useRef(null)
+
+  useEffect(() => () => window.clearTimeout(loginCloseTimer.current), [])
+
+  const closePhoneLogin = () => {
+    if (!showPhoneLogin || loginClosing) return
+    setLoginClosing(true)
+    window.clearTimeout(loginCloseTimer.current)
+    loginCloseTimer.current = window.setTimeout(() => {
+      setShowPhoneLogin(false)
+      setLoginClosing(false)
+    }, LOGIN_PANEL_CLOSE_MS)
+  }
 
   useEffect(() => {
     const refreshProfile = async () => {
@@ -189,7 +214,7 @@ function MyPage({ openPhoneLogin = false, onLoginComplete }) {
     const profile = await getUserProfile()
     setUserProfile(profile)
     if (import.meta.env.DEV) console.info('[MyPage] profile updated')
-    setShowPhoneLogin(false)
+    closePhoneLogin()
     setError(profile.profileStatus === 'error'
       ? '网络好像开小差了，请稍后再试。'
       : '')
@@ -215,7 +240,8 @@ function MyPage({ openPhoneLogin = false, onLoginComplete }) {
         {showPhoneLogin && (
           <PhoneLoginPanel
             onSuccess={handlePhoneLoginSuccess}
-            onCancel={() => setShowPhoneLogin(false)}
+            onCancel={closePhoneLogin}
+            closing={loginClosing}
           />
         )}
         <CompanionCard count={userProfile.companionCount} />
